@@ -1,103 +1,137 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { AuthProvider, useAuth } from "./context/AuthContext"; // Import Context
+import api from "./api/axios"; // Import Axios for fetching keys
+
+// Views
 import { HeroView } from "./views/HeroView";
-import { LoginView } from "./views/LoginView";
+import LoginView from "./pages/Login"; // Use the new LoginView we just updated!
 import { MFAView } from "./views/MFAView";
 import { DashboardView } from "./views/DashboardView";
-import { DocumentationView } from "./views/DocumentationView"; 
+// import { DocumentationView } from "./views/DocumentationView"; // Uncomment if you have this file
 
-// ⚡ Set to false tomorrow to connect backend
-const MOCK_MODE = true; 
-
+// ⚡ THE MAIN WRAPPER
 export default function App() {
+  return (
+    <AuthProvider>
+      <MainLogic />
+    </AuthProvider>
+  );
+}
+
+// 🧠 THE LOGIC COMPONENT (Has access to useAuth)
+function MainLogic() {
+  const { user, token, logout } = useAuth(); // Get real user state
   const [view, setView] = useState("hero");
-  const [loading, setLoading] = useState(false);
-  const [user, setUser] = useState({ username: "", role: "" });
   
-  // Mock Data
+  // Real Data State
   const [keys, setKeys] = useState([]);
   const [logs, setLogs] = useState([]);
+  const [loading, setLoading] = useState(false);
 
-  // --- Handlers ---
+  // --- 1. Auto-Redirect Logic ---
+  // If we have a token (logged in), go straight to Dashboard
+  useEffect(() => {
+    if (token && view !== "dashboard") {
+      setView("dashboard");
+      fetchDashboardData();
+    }
+  }, [token]);
+
+  // --- 2. Data Fetching (Real Backend) ---
+  const fetchDashboardData = async () => {
+    try {
+      // Fetch Keys
+      const keyRes = await api.get('/keys'); 
+      setKeys(keyRes.data);
+
+      // Fetch Logs (If you implemented the logs endpoint, otherwise keep mock for now)
+      // const logRes = await api.get('/logs');
+      // setLogs(logRes.data); 
+      
+      // For Lab Demo: We can simulate logs from the keys if needed
+      setLogs([
+        { id: 1, action: "SYSTEM_INIT", desc: "Secure Gateway Online", time: new Date().toLocaleTimeString(), signature: "sys_root" }
+      ]);
+    } catch (err) {
+      console.error("Failed to fetch data", err);
+    }
+  };
+
+  // --- 3. Handlers ---
 
   const handleStart = () => {
     setView("login");
   };
 
   const handleDocs = () => {
-    setView("docs");
+    // setView("docs"); // Uncomment if you have docs
+    alert("Documentation View Placeholder");
   };
 
-  const handleBackToHero = () => {
+  const handleLogout = () => {
+    logout(); // Clear Token
     setView("hero");
+    setKeys([]);
   };
 
-  const handleLogin = (creds) => {
-    setLoading(true);
-    // Simulate Backend Delay
-    setTimeout(() => {
-      setLoading(false);
-      setUser(prev => ({ ...prev, username: creds.username }));
-      setView("mfa");
-    }, 1500);
-  };
-
-  const handleMFA = (otp) => {
-    setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
-      // Determine Role based on username (Mock Logic for Demo)
-      // If username has 'dev', make them Developer. Else Admin.
-      const role = user.username.toLowerCase().includes("dev") ? "developer" : "admin";
-      setUser(prev => ({ ...prev, role }));
+  const handleGenerateKey = async (name, scopes) => {
+    try {
+      setLoading(true);
+      // CALL REAL BACKEND 🚀
+      const res = await api.post('/keys/generate', { 
+        name: name || "New Service", 
+        scopes: scopes || ["read:data"] 
+      });
       
-      loadMockData();
-      setView("dashboard");
-    }, 1500);
+      // Add new key to list
+      const newKey = {
+        id: res.data.keyId,
+        prefix: res.data.apiKey, // SHOWS FULL KEY ONCE (Important!)
+        created: new Date().toLocaleTimeString(),
+        fingerprint: "SHA-256: (Hidden)", // We refresh list to get real fingerprint
+        status: "Active"
+      };
+      
+      setKeys([newKey, ...keys]);
+      
+      // Add Audit Log
+      setLogs(prev => [{
+        id: Date.now(),
+        action: "KEY_GENERATED",
+        desc: `AES-256 Key for ${name}`,
+        time: new Date().toLocaleTimeString(),
+        signature: "sig_" + Math.random().toString(16).substr(2, 6) // Simulated signature for UI
+      }, ...prev]);
+
+    } catch (err) {
+      alert("Failed to generate key: " + err.response?.data?.error);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleGenerateKey = () => {
-    const newKey = {
-      id: Math.random().toString(36).substr(2, 9),
-      prefix: "sk_live_" + Math.random().toString(36).substr(2, 4),
-      created: new Date().toLocaleTimeString(),
-      fingerprint: "SHA-256: " + Math.random().toString(16).substr(2, 8) + "..."
-    };
-    setKeys([newKey, ...keys]);
-    
-    setLogs(prev => [{
-      id: Date.now(),
-      action: "KEY_GENERATED",
-      desc: "AES-256 Key Created",
-      time: new Date().toLocaleTimeString(),
-      signature: "sig_" + Math.random().toString(16).substr(2, 6)
-    }, ...prev]);
-  };
 
-  const loadMockData = () => {
-    setKeys([{ id: "1", prefix: "sk_live_9f8a", created: "10:00 AM", fingerprint: "SHA-256: a1b2c3..." }]);
-    setLogs([{ id: 1, action: "LOGIN_SUCCESS", desc: "MFA Verified", time: "10:00 AM", signature: "sig_8a7f" }]);
-  };
+  // --- 4. View Routing ---
 
-  // --- Routing Logic ---
-  
-  // 1. Hero Page (Passes both Start and Docs handlers)
   if (view === "hero") return <HeroView onStart={handleStart} onDocs={handleDocs} />;
   
-  // 2. Documentation Page
-  if (view === "docs") return <DocumentationView onBack={handleBackToHero} />;
+  // Note: LoginView now handles the API call internally via AuthContext
+  // We pass 'setView' so it can redirect if needed, but AuthContext auto-redirects usually
+  if (view === "login") return <LoginView />; 
   
-  // 3. Login Flow
-  if (view === "login") return <LoginView onLogin={handleLogin} loading={loading} />;
-  if (view === "mfa") return <MFAView onVerify={handleMFA} loading={loading} />;
+  if (view === "mfa") return <MFAView onVerify={() => setView("dashboard")} loading={loading} />;
   
-  // 4. Dashboard (Protected)
-  return (
-    <DashboardView 
-      user={user} 
-      keys={keys} 
-      logs={logs} 
-      onGenerateKey={handleGenerateKey} 
-      onLogout={() => setView("hero")} 
-    />
-  );
+  if (view === "dashboard") {
+    return (
+      <DashboardView 
+        user={user || { username: "Admin", role: "SuperAdmin" }} 
+        keys={keys} 
+        logs={logs} 
+        onGenerateKey={handleGenerateKey} 
+        onLogout={handleLogout} 
+      />
+    );
+  }
+
+  return <HeroView onStart={handleStart} />;
 }
