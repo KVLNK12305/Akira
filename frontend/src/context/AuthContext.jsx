@@ -6,21 +6,16 @@ const AuthContext = createContext();
 export const AuthProvider = ({ children }) => {
   // ⚡ STATE MANAGEMENT
   const [user, setUser] = useState(null);
-  
-  // Start null so refreshing the page resets the demo (as requested)
   const [token, setToken] = useState(null); 
-  
-  // Stores email temporarily during the MFA phase
   const [tempEmail, setTempEmail] = useState(null); 
 
-  // 1. LOGIN ACTION (Triggers OTP)
-  // We do NOT set the token here. We only set 'tempEmail'.
+  // 1. STANDARD LOGIN (Triggers OTP)
   const login = async (email, password) => {
     try {
       const res = await api.post('/auth/login', { email, password });
       
       if (res.data.success) {
-        setTempEmail(email); // Move App to MFA Screen
+        setTempEmail(email); // Save the ACTUAL email for MFA
         return { success: true, requireMfa: true };
       }
     } catch (error) {
@@ -29,12 +24,31 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // 2. GOOGLE LOGIN SIMULATION
-  // Reuses the backend login to send a real OTP to the admin email
-  const googleLogin = async () => {
-    // For Lab Demo: We simulate Google by logging in as the Admin automatically
-    // This triggers the real "AKIRA Security" email to your Gmail
-    return login("admin@akira.dev", "securePassword123");
+  
+
+  // 2. ⚡ SMART GOOGLE LOGIN (The Fix)
+  // Now accepts the 'googleEmail' you selected in the pop-up
+// 2. ⚡ SMART GOOGLE LOGIN (Updated)
+  const googleLogin = async (googleEmail) => {
+    try {
+      console.log(`🔍 Google Request for: ${googleEmail}`);
+      
+      // Call the NEW specialized endpoint
+      // This bypasses the "Password Check" completely
+      const res = await api.post('/auth/google', { email: googleEmail });
+
+      if (res.data.success) {
+        setTempEmail(googleEmail); // Save email for MFA
+        return { success: true, requireMfa: true };
+      }
+      
+    } catch (error) {
+      console.error("Google Auth Failed:", error.response?.data);
+      return { 
+        success: false, 
+        error: error.response?.data?.error || "Google Login Failed" 
+      };
+    }
   };
 
   // 3. LOGOUT

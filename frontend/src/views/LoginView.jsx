@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext"; 
 import { Eye, EyeOff, Chrome, Zap, ShieldCheck, AlertCircle, Loader2 } from "lucide-react";
+import { useGoogleLogin } from '@react-oauth/google';
+import axios from 'axios';
 
 export default function LoginView() {
   const { login, register, googleLogin } = useAuth(); 
@@ -9,25 +11,19 @@ export default function LoginView() {
   const [showPass, setShowPass] = useState(false);
   const [bootSequence, setBootSequence] = useState(true);
   const [loading, setLoading] = useState(false); 
-
   const [formData, setFormData] = useState({ username: "", email: "", password: "" });
   const [errors, setErrors] = useState({});
 
   useEffect(() => {
-    // Short boot sequence for effect
     const timer = setTimeout(() => setBootSequence(false), 2000);
     return () => clearTimeout(timer);
   }, []);
 
-  // Validation Logic
   const validate = () => {
     let newErrors = {};
     if (isRegister && !formData.username.trim()) newErrors.username = "Username is required.";
-    
-    // Simple email check
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!formData.email.trim() || !emailRegex.test(formData.email)) newErrors.email = "Valid email is required.";
-
     if (isRegister) {
       const passRegex = /^(?=.*[A-Z])(?=.*[!@#$&*])(?=.*[0-9]).{8,}$/;
       if (!passRegex.test(formData.password)) {
@@ -36,49 +32,56 @@ export default function LoginView() {
     } else {
       if (!formData.password) newErrors.password = "Password is required.";
     }
-
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  // Handle Standard Login/Register
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!validate()) return;
-
     setLoading(true);
     setErrors({}); 
-
     let result;
     if (isRegister) {
       result = await register(formData.username, formData.email, formData.password, 'Developer');
     } else {
       result = await login(formData.email, formData.password);
     }
-
     setLoading(false);
-
-    if (!result.success) {
-      setErrors({ form: result.error });
-    }
-    // If success, App.jsx handles the redirection automatically
+    if (!result.success) setErrors({ form: result.error });
   };
 
-  // ✅ Handle Google Login (Simulated)
-  const handleGoogleClick = async () => {
-    setLoading(true);
-    setErrors({});
-    
-    // This calls the Admin login logic -> Triggers Email OTP
-    const result = await googleLogin();
-    
-    setLoading(false);
-    if (!result.success) {
-      setErrors({ form: "Google Auth Failed: " + result.error });
-    }
-  };
+  // 🚀 REAL GOOGLE OAUTH LOGIC
+  const googleAuth = useGoogleLogin({
+    onSuccess: async (tokenResponse) => {
+      setLoading(true);
+      try {
+        // Fetch user info from Google
+        const userInfo = await axios.get(
+          'https://www.googleapis.com/oauth2/v3/userinfo',
+          { headers: { Authorization: `Bearer ${tokenResponse.access_token}` } }
+        );
 
-  // Boot Sequence Animation
+        const googleEmail = userInfo.data.email;
+        
+        // Use our Context to Login/Register this email
+        const result = await googleLogin(googleEmail);
+        
+        if (!result.success) {
+          setErrors({ form: "Auth Error: " + (result.error || "Please try again.") });
+        }
+      } catch (err) {
+        setErrors({ form: "Google API Connection Failed" });
+      } finally {
+        setLoading(false);
+      }
+    },
+    onError: () => {
+      setErrors({ form: "Google Login Failed" });
+      setLoading(false);
+    },
+  });
+
   if (bootSequence) {
     return (
       <div className="min-h-screen bg-black flex flex-col items-center justify-center font-mono text-emerald-500 text-xs md:text-sm p-8 select-none">
@@ -98,14 +101,11 @@ export default function LoginView() {
 
   return (
     <div className="min-h-screen relative bg-slate-950 flex items-center justify-center p-4 overflow-hidden font-sans">
-      
-      {/* Background Blobs */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute -top-[20%] -right-[10%] w-[800px] h-[800px] bg-emerald-600/20 rounded-full blur-[120px] animate-pulse"></div>
         <div className="absolute -bottom-[20%] -left-[10%] w-[600px] h-[600px] bg-blue-600/10 rounded-full blur-[100px]"></div>
       </div>
 
-      {/* Glass Card */}
       <div className="relative z-10 w-full max-w-[420px] animate-[fade-in_0.5s_ease-out]">
         <div className="rounded-[32px] p-8 md:p-10 relative overflow-hidden backdrop-blur-xl bg-white/5 border border-white/10 shadow-2xl">
           
@@ -122,13 +122,12 @@ export default function LoginView() {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            
             {errors.form && (
               <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-xs flex items-center gap-2">
                 <AlertCircle size={14} /> {errors.form}
               </div>
             )}
-
+            
             {isRegister && (
               <div className="animate-[fade-in_0.3s]">
                 <input 
@@ -188,10 +187,15 @@ export default function LoginView() {
             <div className="flex-grow border-t border-white/10"></div>
           </div>
 
-          {/* 🚀 GOOGLE LOGIN BUTTON */}
+
+
           <button 
-            type="button"
-            onClick={handleGoogleClick}
+            type="button" // <--- CRITICAL: Prevents form submit
+            onClick={(e) => {
+              e.preventDefault(); // <--- CRITICAL: Stops reload
+              console.log("Google Button Clicked"); // Debug log
+              googleAuth();
+            }} 
             disabled={loading}
             className="w-full flex items-center justify-center gap-3 bg-white/5 hover:bg-white/10 border border-white/10 text-white py-3 rounded-xl transition-all hover:scale-[1.02]"
           >

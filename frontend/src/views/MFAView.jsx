@@ -1,16 +1,16 @@
 import { useState, useEffect } from "react";
-import { Shield, ArrowRight, Loader2, Clock, LogOut } from "lucide-react"; 
+import { Shield, ArrowRight, Loader2, Clock, LogOut, RefreshCw } from "lucide-react"; 
 import api from "../api/axios"; 
 import { useAuth } from "../context/AuthContext";
 
 export function MFAView({ onVerify, loading, onLogout }) {
-  // 1. GET tempEmail FROM CONTEXT
-  const { user, tempEmail } = useAuth(); 
+  const { user, tempEmail, setToken, googleLogin } = useAuth(); 
 
   const [code, setCode] = useState(["", "", "", "", "", ""]);
   const [error, setError] = useState("");
   const [isVerifying, setIsVerifying] = useState(false);
-  const [timeLeft, setTimeLeft] = useState(120); 
+  const [timeLeft, setTimeLeft] = useState(60); 
+  const [isResending, setIsResending] = useState(false); 
 
   useEffect(() => {
     document.getElementById("otp-0")?.focus();
@@ -38,13 +38,8 @@ export function MFAView({ onVerify, loading, onLogout }) {
   const handleVerify = async (fullCode) => {
     setIsVerifying(true);
     setError("");
-
-    // 2. DETERMINE EMAIL (Crucial Logic)
-    // Priority: User Context -> Temp Context -> LocalStorage -> Fallback
-    const emailToVerify = user?.email || tempEmail || localStorage.getItem('temp_email') || "admin@akira.dev";
+    const emailToVerify = user?.email || tempEmail || localStorage.getItem('temp_email');
     
-    console.log("🚀 Debug: Sending to Backend:", { email: emailToVerify, otp: fullCode });
-
     try {
       const res = await api.post('/auth/verify-mfa', { 
         email: emailToVerify, 
@@ -52,12 +47,11 @@ export function MFAView({ onVerify, loading, onLogout }) {
       });
 
       if (res.data.success) {
-        // 3. SUCCESS: Save Token and Redirect
         localStorage.setItem('token', res.data.token);
+        setToken(res.data.token); 
         onVerify(); 
       }
     } catch (err) {
-      console.error("❌ MFA Failed:", err.response?.data);
       setError("Incorrect Code. Access Denied.");
       setIsVerifying(false);
       setCode(["", "", "", "", "", ""]);
@@ -65,11 +59,27 @@ export function MFAView({ onVerify, loading, onLogout }) {
     }
   };
 
+  const handleResend = async () => {
+    setIsResending(true);
+    const emailToResend = user?.email || tempEmail || localStorage.getItem('temp_email');
+    
+    try {
+      await googleLogin(emailToResend); 
+      setTimeLeft(60);
+      setError("");
+      alert(`New Code sent to ${emailToResend}`);
+    } catch (err) {
+      setError("Failed to resend code.");
+    } finally {
+      setIsResending(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-black flex items-center justify-center p-4">
       <div className="w-full max-w-md bg-zinc-900/50 border border-zinc-800 rounded-3xl p-8 backdrop-blur-xl relative overflow-hidden">
         
-        <div className="absolute top-0 left-0 h-1 bg-emerald-500 transition-all duration-1000 ease-linear" style={{ width: `${(timeLeft/120)*100}%` }}></div>
+        <div className="absolute top-0 left-0 h-1 bg-emerald-500 transition-all duration-1000 ease-linear" style={{ width: `${(timeLeft/60)*100}%` }}></div>
 
         <div className="text-center mb-8">
           <div className="w-16 h-16 bg-zinc-800 rounded-full flex items-center justify-center mx-auto mb-6 border border-zinc-700 relative">
@@ -104,6 +114,19 @@ export function MFAView({ onVerify, loading, onLogout }) {
           className="w-full bg-white text-black font-bold py-4 rounded-xl hover:bg-emerald-400 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {isVerifying ? <Loader2 className="animate-spin"/> : <>Verify Identity <ArrowRight size={18}/></>}
+        </button>
+
+        <button
+          onClick={handleResend}
+          disabled={timeLeft > 0 || isResending} 
+          className={`w-full mt-3 py-3 rounded-xl border border-zinc-700 flex items-center justify-center gap-2 transition-all ${
+            timeLeft === 0 
+              ? "bg-zinc-800 text-emerald-400 hover:bg-zinc-700 cursor-pointer" 
+              : "bg-transparent text-zinc-600 cursor-not-allowed opacity-50"
+          }`}
+        >
+          {isResending ? <Loader2 className="animate-spin" size={16}/> : <RefreshCw size={16} />}
+          {timeLeft === 0 ? "Resend Verification Code" : `Resend available in ${timeLeft}s`}
         </button>
 
         <button 
