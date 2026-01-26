@@ -1,0 +1,116 @@
+@import "tailwindcss";
+
+/* 🎨 UNIFIED THEME CONFIGURATION (Tailwind v4) */
+@theme {
+  /* Colors */
+  --color-slate-950: #020617;
+  
+  /* Emerald (Dashboard Accents) */
+  --color-emerald-500: #10b981;
+  --color-emerald-600: #059669;
+  
+  /* Teal (Login Accents) */
+  --color-teal-400: #2dd4bf;
+  --color-teal-500: #14b8a6;
+  --color-teal-600: #0d9488;
+
+  /* Fonts */
+  --font-sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  
+  /* Animations */
+  --animate-fade-in: fade-in 0.5s ease-out;
+  --animate-float: float 6s ease-in-out infinite;
+
+  @keyframes fade-in {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes float {
+    0% { transform: translateY(0px); }
+    50% { transform: translateY(-20px); }
+    100% { transform: translateY(0px); }
+  }
+}
+
+/* 🛠️ GLOBAL STYLES */
+body {
+  background-color: var(--color-slate-950);
+  color: #e2e8f0;
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+}
+
+/* =========================================
+   💎 LOGIN COMPONENTS (High-End Glass)
+   ========================================= */
+
+/* Real Glassmorphism (Matches your image) */
+.glass-card-pro {
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.36);
+}
+
+/* Glass Inputs */
+.input-glass {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  color: white;
+  transition: all 0.3s ease;
+}
+
+.input-glass:focus {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: var(--color-teal-500);
+  box-shadow: 0 0 15px rgba(20, 184, 166, 0.3);
+  transform: translateY(-2px);
+}
+
+/* Social Buttons */
+.btn-social {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.btn-social:hover {
+  background: rgba(255, 255, 255, 0.15);
+  transform: translateY(-3px);
+  border-color: var(--color-teal-400);
+}
+
+/* =========================================
+   🛡️ DASHBOARD COMPONENTS (Sentinel Style)
+   ========================================= */
+
+/* Standard Glass Panel (For Sidebar/Widgets) */
+.glass-panel {
+  @apply bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl shadow-2xl;
+}
+
+/* "Hacker" Input Fields */
+.input-field {
+  @apply w-full bg-slate-900 border border-slate-800 rounded-lg px-4 py-3 text-sm 
+  focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/50 
+  transition-all placeholder:text-slate-600 text-slate-200;
+}
+
+/* Primary Action Button */
+.btn-primary {
+  @apply w-full bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-3 rounded-lg 
+  transition-all active:scale-[0.98] shadow-lg shadow-emerald-900/20 
+  flex justify-center items-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed;
+}
+
+/* Status Badges */
+.badge {
+  @apply px-2 py-0.5 rounded text-[10px] font-mono uppercase tracking-wider border inline-flex items-center gap-1;
+}
