@@ -1,15 +1,14 @@
 import { useState, useEffect } from "react";
-import { AuthProvider, useAuth } from "./context/AuthContext"; // Import Context
-import api from "./api/axios"; // Import Axios for fetching keys
+import { AuthProvider, useAuth } from "./context/AuthContext"; 
+import api from "./api/axios"; 
 
 // Views
 import { HeroView } from "./views/HeroView";
-import LoginView from "./pages/Login"; // Use the new LoginView we just updated!
-import { MFAView } from "./views/MFAView";
+import LoginView from "./views/LoginView"; 
+import { MFAView } from "./views/MFAView"; 
 import { DashboardView } from "./views/DashboardView";
-// import { DocumentationView } from "./views/DocumentationView"; // Uncomment if you have this file
+import { DocumentationView } from "./views/DocumentationView"; 
 
-// ⚡ THE MAIN WRAPPER
 export default function App() {
   return (
     <AuthProvider>
@@ -18,37 +17,37 @@ export default function App() {
   );
 }
 
-// 🧠 THE LOGIC COMPONENT (Has access to useAuth)
 function MainLogic() {
-  const { user, token, logout } = useAuth(); // Get real user state
+  const { user, token, tempEmail, logout } = useAuth(); 
   const [view, setView] = useState("hero");
   
-  // Real Data State
+  // Data State
   const [keys, setKeys] = useState([]);
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  // --- 1. Auto-Redirect Logic ---
-  // If we have a token (logged in), go straight to Dashboard
+  // --- 1. SMART ROUTING LOGIC ---
   useEffect(() => {
-    if (token && view !== "dashboard") {
-      setView("dashboard");
-      fetchDashboardData();
+    // Case A: User has a Token -> They are fully logged in -> Dashboard
+    if (token) {
+      if (view !== "dashboard") {
+        setView("dashboard");
+        fetchDashboardData();
+      }
+    } 
+    // Case B: No Token, but we have a Temp Email -> They need MFA -> MFA Screen
+    else if (tempEmail) {
+       if (view !== "mfa") setView("mfa");
     }
-  }, [token]);
+    // Case C: No Token, No Email -> Stay on Hero/Login
+  }, [token, tempEmail, view]);
 
-  // --- 2. Data Fetching (Real Backend) ---
+  // --- 2. Data Fetching ---
   const fetchDashboardData = async () => {
     try {
-      // Fetch Keys
       const keyRes = await api.get('/keys'); 
       setKeys(keyRes.data);
-
-      // Fetch Logs (If you implemented the logs endpoint, otherwise keep mock for now)
-      // const logRes = await api.get('/logs');
-      // setLogs(logRes.data); 
       
-      // For Lab Demo: We can simulate logs from the keys if needed
       setLogs([
         { id: 1, action: "SYSTEM_INIT", desc: "Secure Gateway Online", time: new Date().toLocaleTimeString(), signature: "sys_root" }
       ]);
@@ -58,18 +57,17 @@ function MainLogic() {
   };
 
   // --- 3. Handlers ---
+  const handleStart = () => setView("login");
+  const handleDocs = () => setView("docs");
 
-  const handleStart = () => {
-    setView("login");
-  };
-
-  const handleDocs = () => {
-    // setView("docs"); // Uncomment if you have docs
-    alert("Documentation View Placeholder");
+  const handleMfaSuccess = () => {
+    // We don't need to manually redirect here. 
+    // MFAView sets the Token in LocalStorage/Context.
+    // The useEffect above detects the new token and auto-redirects to Dashboard.
   };
 
   const handleLogout = () => {
-    logout(); // Clear Token
+    logout();
     setView("hero");
     setKeys([]);
   };
@@ -77,30 +75,27 @@ function MainLogic() {
   const handleGenerateKey = async (name, scopes) => {
     try {
       setLoading(true);
-      // CALL REAL BACKEND 🚀
       const res = await api.post('/keys/generate', { 
         name: name || "New Service", 
         scopes: scopes || ["read:data"] 
       });
       
-      // Add new key to list
       const newKey = {
         id: res.data.keyId,
-        prefix: res.data.apiKey, // SHOWS FULL KEY ONCE (Important!)
+        prefix: res.data.apiKey, // SHOWS FULL KEY ONCE
         created: new Date().toLocaleTimeString(),
-        fingerprint: "SHA-256: (Hidden)", // We refresh list to get real fingerprint
+        fingerprint: "SHA-256: (Hidden)", 
         status: "Active"
       };
       
       setKeys([newKey, ...keys]);
       
-      // Add Audit Log
       setLogs(prev => [{
         id: Date.now(),
         action: "KEY_GENERATED",
         desc: `AES-256 Key for ${name}`,
         time: new Date().toLocaleTimeString(),
-        signature: "sig_" + Math.random().toString(16).substr(2, 6) // Simulated signature for UI
+        signature: "sig_" + Math.random().toString(16).substr(2, 6) 
       }, ...prev]);
 
     } catch (err) {
@@ -110,16 +105,17 @@ function MainLogic() {
     }
   };
 
-
-  // --- 4. View Routing ---
+  // --- 4. View Rendering ---
 
   if (view === "hero") return <HeroView onStart={handleStart} onDocs={handleDocs} />;
   
-  // Note: LoginView now handles the API call internally via AuthContext
-  // We pass 'setView' so it can redirect if needed, but AuthContext auto-redirects usually
+  if (view === "docs") return <DocumentationView onBack={() => setView("hero")} />;
+  
   if (view === "login") return <LoginView />; 
   
-  if (view === "mfa") return <MFAView onVerify={() => setView("dashboard")} loading={loading} />;
+  if (view === "mfa") {
+    return <MFAView onVerify={handleMfaSuccess} loading={loading} onLogout={handleLogout} />;
+  }
   
   if (view === "dashboard") {
     return (
@@ -133,5 +129,6 @@ function MainLogic() {
     );
   }
 
-  return <HeroView onStart={handleStart} />;
+  // Fallback
+  return <HeroView onStart={handleStart} onDocs={handleDocs} />;
 }

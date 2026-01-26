@@ -1,47 +1,33 @@
 import { useState, useEffect } from "react";
-import { useAuth } from "../context/AuthContext"; // <--- 1. Import Context
-import { useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext"; 
 import { Eye, EyeOff, Chrome, Zap, ShieldCheck, AlertCircle, Loader2 } from "lucide-react";
 
-const QUOTES = [
-  { text: "Security is a process, not a product.", author: "Bruce Schneier" },
-  { text: "Simplicity is the ultimate sophistication.", author: "Leonardo da Vinci" }
-];
-
-export default function Login() {
-  const { login, register } = useAuth(); // <--- 2. Get Actions
-  const navigate = useNavigate();
-
+export default function LoginView() {
+  const { login, register, googleLogin } = useAuth(); 
+  
   const [isRegister, setIsRegister] = useState(false);
   const [showPass, setShowPass] = useState(false);
   const [bootSequence, setBootSequence] = useState(true);
-  const [loading, setLoading] = useState(false); // Local loading state
+  const [loading, setLoading] = useState(false); 
 
   const [formData, setFormData] = useState({ username: "", email: "", password: "" });
   const [errors, setErrors] = useState({});
 
   useEffect(() => {
-    // Shorten boot sequence for dev speed (optional)
-    const timer = setTimeout(() => setBootSequence(false), 2200);
+    // Short boot sequence for effect
+    const timer = setTimeout(() => setBootSequence(false), 2000);
     return () => clearTimeout(timer);
   }, []);
 
-  // 🛡️ VALIDATION LOGIC (Refined for Backend)
+  // Validation Logic
   const validate = () => {
     let newErrors = {};
+    if (isRegister && !formData.username.trim()) newErrors.username = "Username is required.";
     
-    // 1. Username: Only required for REGISTER
-    if (isRegister && !formData.username.trim()) {
-      newErrors.username = "Username is required for new agents.";
-    }
-
-    // 2. Email: Required for BOTH
+    // Simple email check
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!formData.email.trim() || !emailRegex.test(formData.email)) {
-      newErrors.email = "Valid email is required.";
-    }
+    if (!formData.email.trim() || !emailRegex.test(formData.email)) newErrors.email = "Valid email is required.";
 
-    // 3. Password Rules
     if (isRegister) {
       const passRegex = /^(?=.*[A-Z])(?=.*[!@#$&*])(?=.*[0-9]).{8,}$/;
       if (!passRegex.test(formData.password)) {
@@ -55,34 +41,44 @@ export default function Login() {
     return Object.keys(newErrors).length === 0;
   };
 
+  // Handle Standard Login/Register
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!validate()) return;
 
     setLoading(true);
-    setErrors({}); // Clear previous errors
+    setErrors({}); 
 
     let result;
-
     if (isRegister) {
-      // Register: Username + Email + Password + Default Role
       result = await register(formData.username, formData.email, formData.password, 'Developer');
     } else {
-      // Login: Email + Password
       result = await login(formData.email, formData.password);
     }
 
     setLoading(false);
 
-    if (result.success) {
-      navigate('/dashboard'); // <--- Redirect to Dashboard on success
-    } else {
-      // Show Backend Error (e.g., "Invalid credentials")
+    if (!result.success) {
       setErrors({ form: result.error });
+    }
+    // If success, App.jsx handles the redirection automatically
+  };
+
+  // ✅ Handle Google Login (Simulated)
+  const handleGoogleClick = async () => {
+    setLoading(true);
+    setErrors({});
+    
+    // This calls the Admin login logic -> Triggers Email OTP
+    const result = await googleLogin();
+    
+    setLoading(false);
+    if (!result.success) {
+      setErrors({ form: "Google Auth Failed: " + result.error });
     }
   };
 
-  // 📟 BOOT SEQUENCE
+  // Boot Sequence Animation
   if (bootSequence) {
     return (
       <div className="min-h-screen bg-black flex flex-col items-center justify-center font-mono text-emerald-500 text-xs md:text-sm p-8 select-none">
@@ -113,7 +109,6 @@ export default function Login() {
       <div className="relative z-10 w-full max-w-[420px] animate-[fade-in_0.5s_ease-out]">
         <div className="rounded-[32px] p-8 md:p-10 relative overflow-hidden backdrop-blur-xl bg-white/5 border border-white/10 shadow-2xl">
           
-          {/* Header */}
           <div className="mb-8 text-center">
             <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-emerald-500/10 mb-4 border border-emerald-500/20 text-emerald-400">
               <ShieldCheck className="w-6 h-6" />
@@ -128,14 +123,12 @@ export default function Login() {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             
-            {/* Global Error Message from Backend */}
             {errors.form && (
               <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-xs flex items-center gap-2">
                 <AlertCircle size={14} /> {errors.form}
               </div>
             )}
 
-            {/* Username (Register Only) */}
             {isRegister && (
               <div className="animate-[fade-in_0.3s]">
                 <input 
@@ -148,7 +141,6 @@ export default function Login() {
               </div>
             )}
 
-            {/* Email (Always Required) */}
             <div>
               <input 
                 className={`w-full bg-white/5 border border-white/10 text-white px-5 py-4 rounded-xl outline-none focus:border-emerald-500/50 transition-colors text-sm font-medium placeholder:text-slate-500 ${errors.email ? 'border-red-500/50' : ''}`}
@@ -159,7 +151,6 @@ export default function Login() {
               {errors.email && <p className="text-red-400 text-xs mt-1 ml-1">{errors.email}</p>}
             </div>
 
-            {/* Password */}
             <div className="relative">
               <input 
                 type={showPass ? "text" : "password"}
@@ -178,7 +169,6 @@ export default function Login() {
               {errors.password && <p className="text-red-400 text-xs mt-1 ml-1">{errors.password}</p>}
             </div>
 
-            {/* Submit Button */}
             <button 
               disabled={loading}
               className="w-full bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-white font-bold py-4 rounded-xl transition-all shadow-[0_0_20px_-5px_rgba(16,185,129,0.4)] hover:shadow-[0_0_25px_-5px_rgba(16,185,129,0.6)] flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -190,10 +180,28 @@ export default function Login() {
                 </>
               )}
             </button>
-
           </form>
 
-          {/* Toggle Login/Register */}
+          <div className="relative flex items-center py-6">
+            <div className="flex-grow border-t border-white/10"></div>
+            <span className="flex-shrink-0 mx-4 text-xs text-slate-500">or continue with</span>
+            <div className="flex-grow border-t border-white/10"></div>
+          </div>
+
+          {/* 🚀 GOOGLE LOGIN BUTTON */}
+          <button 
+            type="button"
+            onClick={handleGoogleClick}
+            disabled={loading}
+            className="w-full flex items-center justify-center gap-3 bg-white/5 hover:bg-white/10 border border-white/10 text-white py-3 rounded-xl transition-all hover:scale-[1.02]"
+          >
+            {loading ? <Loader2 className="animate-spin" size={18} /> : (
+              <>
+                <Chrome size={18} /> <span className="text-sm font-medium">Google Account</span>
+              </>
+            )}
+          </button>
+
           <div className="mt-8 text-center">
             <button 
               onClick={() => { setIsRegister(!isRegister); setErrors({}); }}
