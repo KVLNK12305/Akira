@@ -143,7 +143,7 @@ Every action (Key Generation, Access Denial) generates an Audit Log entry.
 
 **Course:** 23CSE313 - Foundations of Cyber Security
 **Institution:** Amrita Vishwa Vidyapeetham
-**Developer:** [Your Name / ID]
+**Developer:** K V L N Kushal [CB.SC.U4CSE23525]
 
 *This project is built strictly for educational purposes to demonstrate secure identity management principles.*
 
