@@ -1,4 +1,6 @@
 import dotenv from 'dotenv';
+import userRoutes from './src/routes/users.js';
+
 dotenv.config();
 console.log("DEBUG: Mongo URI is:", process.env.MONGO_URI); // <--- Add this
 // ... imports
@@ -31,6 +33,7 @@ app.use(cors({
 app.use('/api/auth', authRoutes); // <-- NEW
 app.use('/api/keys', keyRoutes);  // <-- NEW
 app.use('/api/v1', dataRoutes); // <-- Mount here
+app.use('/api/users', userRoutes);
 
 // 3. Health Check Route
 app.get('/', (req, res) => {
