@@ -3,14 +3,18 @@ import { Shield, ArrowRight, Loader2, Clock, LogOut, RefreshCw } from "lucide-re
 import api from "../api/axios"; 
 import { useAuth } from "../context/AuthContext";
 
-export function MFAView({ onVerify, loading, onLogout }) {
-  const { user, tempEmail, setToken, googleLogin } = useAuth(); 
+export function MFAView({ onVerify }) {
+  // 🟢 Get setAuthSuccess and logout from Context
+  const { user, tempEmail, setAuthSuccess, googleLogin, logout } = useAuth(); 
 
   const [code, setCode] = useState(["", "", "", "", "", ""]);
   const [error, setError] = useState("");
   const [isVerifying, setIsVerifying] = useState(false);
   const [timeLeft, setTimeLeft] = useState(60); 
   const [isResending, setIsResending] = useState(false); 
+
+  // Determine which email we are verifying
+  const targetEmail = user?.email || tempEmail || localStorage.getItem('temp_email');
 
   useEffect(() => {
     document.getElementById("otp-0")?.focus();
@@ -31,27 +35,33 @@ export function MFAView({ onVerify, loading, onLogout }) {
     const newCode = [...code];
     newCode[index] = value;
     setCode(newCode);
+    
+    // Auto-focus next input
     if (value && index < 5) document.getElementById(`otp-${index + 1}`)?.focus();
+    
+    // Auto-submit on fill
     if (newCode.every(digit => digit !== "") && index === 5) handleVerify(newCode.join(""));
   };
 
   const handleVerify = async (fullCode) => {
     setIsVerifying(true);
     setError("");
-    const emailToVerify = user?.email || tempEmail || localStorage.getItem('temp_email');
     
     try {
       const res = await api.post('/auth/verify-mfa', { 
-        email: emailToVerify, 
+        email: targetEmail, 
         otp: fullCode 
       });
 
       if (res.data.success) {
-        localStorage.setItem('token', res.data.token);
-        setToken(res.data.token); 
-        onVerify(); 
+        // 🚀 CRITICAL FIX: Use the Context helper
+        // This sets Token AND User immediately, fixing the "Guest" bug
+        setAuthSuccess(res.data.token, res.data.user);
+        
+        if (onVerify) onVerify(); 
       }
     } catch (err) {
+      console.error(err);
       setError("Incorrect Code. Access Denied.");
       setIsVerifying(false);
       setCode(["", "", "", "", "", ""]);
@@ -61,13 +71,13 @@ export function MFAView({ onVerify, loading, onLogout }) {
 
   const handleResend = async () => {
     setIsResending(true);
-    const emailToResend = user?.email || tempEmail || localStorage.getItem('temp_email');
     
     try {
-      await googleLogin(emailToResend); 
+      // Re-trigger the logic that sends the email
+      await googleLogin(targetEmail); 
       setTimeLeft(60);
       setError("");
-      alert(`New Code sent to ${emailToResend}`);
+      alert(`New Code sent to ${targetEmail}`);
     } catch (err) {
       setError("Failed to resend code.");
     } finally {
@@ -77,8 +87,9 @@ export function MFAView({ onVerify, loading, onLogout }) {
 
   return (
     <div className="min-h-screen bg-black flex items-center justify-center p-4">
-      <div className="w-full max-w-md bg-zinc-900/50 border border-zinc-800 rounded-3xl p-8 backdrop-blur-xl relative overflow-hidden">
+      <div className="w-full max-w-md bg-zinc-900/50 border border-zinc-800 rounded-3xl p-8 backdrop-blur-xl relative overflow-hidden animate-[fade-in_0.3s]">
         
+        {/* Progress Bar */}
         <div className="absolute top-0 left-0 h-1 bg-emerald-500 transition-all duration-1000 ease-linear" style={{ width: `${(timeLeft/60)*100}%` }}></div>
 
         <div className="text-center mb-8">
@@ -88,7 +99,7 @@ export function MFAView({ onVerify, loading, onLogout }) {
           </div>
           <h2 className="text-2xl font-bold text-white mb-2">Identity Verification</h2>
           <p className="text-zinc-400 text-sm">We sent a secure code to 
-            <span className="text-white font-mono ml-1">{tempEmail || "your email"}</span>.
+            <span className="text-white font-mono ml-1 block mt-1">{targetEmail || "your email"}</span>.
           </p>
         </div>
 
@@ -101,17 +112,22 @@ export function MFAView({ onVerify, loading, onLogout }) {
               maxLength="1"
               value={digit}
               onChange={(e) => handleChange(idx, e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Backspace" && !code[idx] && idx > 0) {
+                  document.getElementById(`otp-${idx - 1}`)?.focus();
+                }
+              }}
               className={`w-12 h-14 bg-black border ${error ? 'border-red-500 animate-shake' : 'border-zinc-700 focus:border-emerald-500'} rounded-lg text-center text-xl font-mono text-white outline-none transition-all`}
             />
           ))}
         </div>
 
-        {error && <p className="text-red-500 text-center text-sm mb-4 font-mono">{error}</p>}
+        {error && <p className="text-red-500 text-center text-sm mb-4 font-mono bg-red-500/10 p-2 rounded border border-red-500/20">{error}</p>}
 
         <button
           onClick={() => handleVerify(code.join(""))}
-          disabled={isVerifying || code.some(c => c === "") || timeLeft === 0}
-          className="w-full bg-white text-black font-bold py-4 rounded-xl hover:bg-emerald-400 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+          disabled={isVerifying || code.some(c => c === "")}
+          className="w-full bg-white text-black font-bold py-4 rounded-xl hover:bg-emerald-400 hover:scale-[1.02] transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
         >
           {isVerifying ? <Loader2 className="animate-spin"/> : <>Verify Identity <ArrowRight size={18}/></>}
         </button>
@@ -130,14 +146,14 @@ export function MFAView({ onVerify, loading, onLogout }) {
         </button>
 
         <button 
-          onClick={onLogout}
+          onClick={logout} // 🟢 Calls AuthContext logout directly
           className="w-full mt-4 flex items-center justify-center gap-2 text-zinc-500 hover:text-red-400 text-sm font-medium transition-colors py-2"
         >
           <LogOut size={14} /> Cancel & Return to Home
         </button>
 
-        <div className="mt-6 flex justify-between items-center text-xs font-mono text-zinc-500">
-             <span>Session ID: SEC-{Math.floor(Math.random()*10000)}</span>
+        <div className="mt-6 flex justify-between items-center text-xs font-mono text-zinc-500 border-t border-zinc-800 pt-4">
+             <span>SEC-ID: {Math.floor(Math.random()*10000)}</span>
              <span className={`flex items-center gap-1 ${timeLeft < 30 ? 'text-red-400' : 'text-emerald-400'}`}>
                 <Clock size={12} /> {formatTime(timeLeft)}
              </span>

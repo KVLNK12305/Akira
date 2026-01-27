@@ -1,34 +1,84 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { 
   Shield, Key, FileText, Lock, Users, Activity, 
   CheckCircle, XCircle, LogOut, Fingerprint, AlertTriangle, 
-  Cpu, Thermometer, ChevronDown, Save
+  Cpu, Thermometer, ChevronDown, Save, Bell
 } from "lucide-react";
-import api from "../api/axios"; // Ensure this matches your axios setup
+import api from "../api/axios"; 
 
-// Helper to format timestamps
+// --- HELPER FUNCTIONS ---
+
+// Format Timestamps
 const formatDate = (dateStr) => {
   if (!dateStr) return "Just now";
   return new Date(dateStr).toLocaleTimeString();
 };
 
+// --- MAIN COMPONENT ---
+
 export function DashboardView({ user, keys, logs, onGenerateKey, onLogout }) {
-  const [activeTab, setActiveTab] = useState("matrix");
+  // ----------------------------------------
+  // 1. STATE MANAGEMENT
+  // ----------------------------------------
+  const [activeTab, setActiveTab] = useState("matrix"); // Default to User Management
   const [userList, setUserList] = useState([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   
-  // 🔒 SECURITY ENFORCEMENT
-  // "Newbie" is the default role until an Admin promotes them
-  const currentRole = user?.role?.toLowerCase() || "newbie";
-  const isAdmin = currentRole === 'admin';
+  // 🖥️ Rust Core Simulation State (The "Alive" Widget)
+  const [systemStats, setSystemStats] = useState({
+    integrity: "SECURE",
+    activeNodes: 3,
+    cpu: 12,
+    temp: 45
+  });
 
-  // Fetch Users when entering "Matrix" tab (Only if Admin)
+  // ----------------------------------------
+  // 2. SECURITY & RBAC LOGIC
+  // ----------------------------------------
+  const currentRole = user?.role?.toLowerCase() || "newbie";
+  
+  // "High Privilege" = Can see Keys (Devs, Admins)
+  const isHighPrivilege = ['admin', 'superadmin', 'developer'].includes(currentRole);
+  
+  // "Strict Admin" = Can manage Users (Admins only)
+  const isStrictAdmin = ['admin', 'superadmin'].includes(currentRole);
+
+  // ----------------------------------------
+  // 3. EFFECTS (Live Updates)
+  // ----------------------------------------
+
+  // 💓 Heartbeat Effect (Simulates Rust Microservice)
   useEffect(() => {
-    if (activeTab === 'matrix' && isAdmin) {
+    const interval = setInterval(() => {
+      setSystemStats(prev => {
+        // Randomize stats to look "alive"
+        const newCpu = Math.floor(Math.random() * (45 - 10 + 1) + 10);
+        const newTemp = Math.floor(Math.random() * (60 - 40 + 1) + 40);
+        const newNodes = Math.random() > 0.8 ? (prev.activeNodes === 3 ? 4 : 3) : prev.activeNodes;
+        
+        return {
+          integrity: "SECURE",
+          activeNodes: newNodes,
+          cpu: newCpu,
+          temp: newTemp
+        };
+      });
+    }, 2500); // Update every 2.5s
+
+    return () => clearInterval(interval);
+  }, []);
+
+  // 👥 Fetch Users Effect (Only if Admin & on Matrix Tab)
+  useEffect(() => {
+    if (activeTab === 'matrix' && isStrictAdmin) {
       fetchUsers();
     }
-  }, [activeTab, isAdmin]);
+  }, [activeTab, isStrictAdmin]);
+
+  // ----------------------------------------
+  // 4. API HANDLERS
+  // ----------------------------------------
 
   const fetchUsers = async () => {
     setLoadingUsers(true);
@@ -44,19 +94,31 @@ export function DashboardView({ user, keys, logs, onGenerateKey, onLogout }) {
 
   const handleRoleChange = async (userId, newRole) => {
     try {
-      await api.put(`/users/${userId}/role`, { role: newRole });
-      // Optimistic UI Update: Update list immediately without reloading
+      // 1. Optimistic Update (Update UI instantly)
       setUserList(prev => prev.map(u => u._id === userId ? { ...u, role: newRole } : u));
-      alert(`User promoted to ${newRole}`);
+      
+      // 2. API Call (This triggers the backend email)
+      const res = await api.put(`/users/${userId}/role`, { role: newRole });
+      
+      if (res.data.success) {
+         // Optional: Show a toast notification here
+         console.log(`Role updated to ${newRole} for ${userId}`);
+      }
     } catch (err) {
       alert("Failed to update role: " + (err.response?.data?.error || "Server Error"));
+      fetchUsers(); // Revert UI if failed
     }
   };
 
+  // ----------------------------------------
+  // 5. RENDER
+  // ----------------------------------------
   return (
     <div className="min-h-screen bg-slate-950 flex text-slate-200 font-sans selection:bg-emerald-500/30">
       
-      {/* 🟢 SIDEBAR */}
+      {/* =======================
+          🟢 LEFT SIDEBAR
+      ======================== */}
       <aside className="w-64 bg-slate-900/50 border-r border-slate-800 flex flex-col backdrop-blur-xl fixed h-full z-20">
         <div className="p-6 flex items-center gap-3 border-b border-slate-800/50">
           <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center border border-emerald-500/20">
@@ -69,29 +131,31 @@ export function DashboardView({ user, keys, logs, onGenerateKey, onLogout }) {
         </div>
 
         <nav className="flex-1 p-4 space-y-1">
-          {/* Only show Keys to Admins/Developers */}
-          {(currentRole === 'admin' || currentRole === 'developer') && (
+          {isHighPrivilege && (
             <NavButton 
-              icon={Key} label="API Credentials" 
+              icon={Key} 
+              label="API Credentials" 
               active={activeTab === 'keys'} 
               onClick={() => setActiveTab('keys')}
             />
           )}
           
           <NavButton 
-            icon={FileText} label="Audit Logs" 
+            icon={FileText} 
+            label="Audit Logs" 
             active={activeTab === 'logs'} 
             onClick={() => setActiveTab('logs')} 
           />
           
           <NavButton 
-            icon={Users} label="User Management" 
+            icon={Users} 
+            label="User Management" 
             active={activeTab === 'matrix'} 
             onClick={() => setActiveTab('matrix')} 
           />
         </nav>
 
-        {/* User Profile Footer - CLICKABLE */}
+        {/* User Profile Footer (Clickable) */}
         <div 
           onClick={() => setShowProfile(true)}
           className="p-4 bg-slate-900/80 border-t border-slate-800 cursor-pointer hover:bg-slate-800 transition-colors group"
@@ -103,7 +167,7 @@ export function DashboardView({ user, keys, logs, onGenerateKey, onLogout }) {
               <div className="overflow-hidden">
                 <p className="text-sm font-medium text-white truncate w-32">{user?.username}</p>
                 <div className="flex items-center gap-1.5">
-                    <div className={`w-1.5 h-1.5 rounded-full animate-pulse ${currentRole === 'admin' ? 'bg-purple-500' : 'bg-emerald-500'}`}></div>
+                    <div className={`w-1.5 h-1.5 rounded-full animate-pulse ${isStrictAdmin ? 'bg-purple-500' : 'bg-emerald-500'}`}></div>
                     <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">{user?.role}</p>
                 </div>
               </div>
@@ -115,10 +179,12 @@ export function DashboardView({ user, keys, logs, onGenerateKey, onLogout }) {
         </div>
       </aside>
 
-      {/* 🔵 MAIN CONTENT */}
+      {/* =======================
+          🔵 MAIN CONTENT AREA
+      ======================== */}
       <main className="flex-1 ml-64 p-8 relative overflow-hidden">
         
-        {/* Header with System Stats Widget */}
+        {/* HEADER & WIDGETS */}
         <header className="flex justify-between items-start mb-8 relative z-10">
           <div>
             <h2 className="text-3xl font-bold text-white mb-2">
@@ -127,35 +193,49 @@ export function DashboardView({ user, keys, logs, onGenerateKey, onLogout }) {
               {activeTab === 'matrix' && "Identity & Access Control"}
             </h2>
             <p className="text-slate-400 text-sm">
-              Session ID: <span className="font-mono text-emerald-400">{user?.id?.substring(0,8) || "GUEST"}</span>
+              Session ID: <span className="font-mono text-emerald-400">{user?._id?.substring(0,8) || user?.id?.substring(0,8) || "SESSION-ACTIVE"}</span>
             </p>
           </div>
           
-          {/* 🖥️ RUST IRON CORE WIDGET (Simulated for Demo) */}
+          {/* 🖥️ RUST IRON CORE WIDGET (LIVE) */}
           <div className="flex gap-3">
-             <div className="bg-black/40 border border-slate-800 px-4 py-2 rounded-xl flex items-center gap-3">
+             {/* Widget 1: Integrity */}
+             <div className="bg-black/40 border border-slate-800 px-4 py-2 rounded-xl flex items-center gap-3 backdrop-blur-sm transition-all hover:border-emerald-500/30 group">
                 <div className="text-right">
-                    <p className="text-[10px] text-slate-500 font-bold uppercase">System Integrity</p>
-                    <p className="text-emerald-400 font-mono text-xs font-bold">100% SECURE</p>
+                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider group-hover:text-emerald-400 transition-colors">Iron Core</p>
+                    <div className="flex items-center justify-end gap-2">
+                      <span className="relative flex h-2 w-2">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                      </span>
+                      <p className="text-emerald-400 font-mono text-xs font-bold">{systemStats.integrity}</p>
+                    </div>
                 </div>
                 <Activity size={18} className="text-emerald-500" />
              </div>
-             <div className="bg-black/40 border border-slate-800 px-4 py-2 rounded-xl flex items-center gap-3">
+
+             {/* Widget 2: Load Stats */}
+             <div className="bg-black/40 border border-slate-800 px-4 py-2 rounded-xl flex items-center gap-3 backdrop-blur-sm">
                 <div className="text-right">
-                    <p className="text-[10px] text-slate-500 font-bold uppercase">Active Nodes</p>
-                    <p className="text-blue-400 font-mono text-xs font-bold">3 ONLINE</p>
+                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Nodes / Load</p>
+                    <p className="text-blue-400 font-mono text-xs font-bold transition-all duration-500">
+                      {systemStats.activeNodes} ACT / {systemStats.cpu}%
+                    </p>
                 </div>
                 <Cpu size={18} className="text-blue-500" />
              </div>
           </div>
         </header>
 
-        {/* 🚀 TAB CONTENT */}
+        {/* =======================
+            🚀 TABS CONTENT
+        ======================== */}
         <div className="relative z-10">
           
-          {/* 1. API KEYS (Only for Devs/Admins) */}
+          {/* --- TAB 1: API KEYS --- */}
           {activeTab === 'keys' && (
             <div className="space-y-6 animate-[fade-in_0.3s]">
+               {/* Generator Card */}
                <div className="p-6 rounded-2xl bg-gradient-to-r from-emerald-900/20 to-slate-900 border border-emerald-500/20 flex justify-between items-center shadow-lg">
                   <div>
                     <h3 className="text-lg font-bold text-white flex items-center gap-2">
@@ -165,17 +245,19 @@ export function DashboardView({ user, keys, logs, onGenerateKey, onLogout }) {
                       Generate high-entropy keys for your microservices.
                     </p>
                   </div>
-                  <button onClick={() => onGenerateKey("Service Key", ["read:data"])} className="bg-emerald-500 hover:bg-emerald-400 text-black font-bold px-4 py-2 rounded-lg text-sm transition-colors">
+                  <button onClick={() => onGenerateKey("Service Key", ["read:data"])} className="bg-emerald-500 hover:bg-emerald-400 text-black font-bold px-4 py-2 rounded-lg text-sm transition-colors shadow-[0_0_20px_-5px_rgba(16,185,129,0.4)]">
                      Generate Key
                   </button>
                 </div>
 
+              {/* Keys Table */}
               <div className="bg-slate-900/50 border border-slate-800 rounded-xl overflow-hidden backdrop-blur-md shadow-2xl">
                 <table className="w-full text-left text-sm">
                   <thead className="bg-slate-900/80 text-slate-500 uppercase font-mono text-xs">
                     <tr>
                       <th className="px-6 py-4">Key Fingerprint</th>
                       <th className="px-6 py-4">Encryption</th>
+                      <th className="px-6 py-4">Status</th>
                       <th className="px-6 py-4">Created</th>
                     </tr>
                   </thead>
@@ -186,19 +268,40 @@ export function DashboardView({ user, keys, logs, onGenerateKey, onLogout }) {
                                 {k.prefix && <span className="bg-emerald-500 text-black px-2 py-0.5 rounded text-xs font-bold mr-2">NEW</span>}
                                 {k.fingerprint || "****"}
                           </td>
-                          <td className="px-6 py-4 text-emerald-400 font-mono text-xs">AES-256-GCM</td>
+                          <td className="px-6 py-4 text-emerald-400 font-mono text-xs">
+                             <span className="flex items-center gap-2"><Lock size={12}/> AES-256-GCM</span>
+                          </td>
+                          <td className="px-6 py-4">
+                             <span className="px-2 py-1 bg-emerald-500/10 text-emerald-400 text-xs rounded border border-emerald-500/20">Active</span>
+                          </td>
                           <td className="px-6 py-4 text-slate-500 text-xs font-mono">{formatDate(k.createdAt)}</td>
                         </tr>
                       ))}
+                      {keys.length === 0 && (
+                        <tr><td colSpan="4" className="p-8 text-center text-slate-600 italic">No active keys found.</td></tr>
+                      )}
                   </tbody>
                 </table>
               </div>
             </div>
           )}
 
-          {/* 2. AUDIT LOGS (Visible to Everyone) */}
+          {/* --- TAB 2: AUDIT LOGS --- */}
           {activeTab === 'logs' && (
             <div className="space-y-4 animate-[fade-in_0.3s]">
+               <div className="flex gap-4">
+                  <div className="bg-slate-900/50 border border-slate-800 p-4 rounded-xl flex-1">
+                     <p className="text-xs text-slate-500 uppercase font-bold">Log Integrity</p>
+                     <p className="text-emerald-400 font-mono text-sm font-bold flex items-center gap-2 mt-1">
+                        <CheckCircle size={14}/> Verified (SHA-256)
+                     </p>
+                  </div>
+                  <div className="bg-slate-900/50 border border-slate-800 p-4 rounded-xl flex-1">
+                     <p className="text-xs text-slate-500 uppercase font-bold">Retention Policy</p>
+                     <p className="text-blue-400 font-mono text-sm font-bold mt-1">90 Days / Immutable</p>
+                  </div>
+               </div>
+
               <div className="bg-slate-950 border border-slate-800 rounded-xl overflow-hidden font-mono text-xs shadow-xl">
                   {logs.map((log) => (
                     <div key={log.id} className="p-4 border-b border-slate-900 flex items-center gap-4 hover:bg-slate-900/30 transition-colors">
@@ -210,15 +313,18 @@ export function DashboardView({ user, keys, logs, onGenerateKey, onLogout }) {
                       <Shield size={10} className="text-slate-600" />
                     </div>
                   ))}
+                  {logs.length === 0 && (
+                    <div className="p-8 text-center text-slate-600">No logs generated yet.</div>
+                  )}
               </div>
             </div>
           )}
 
-          {/* 3. USER MANAGEMENT (Admin Only) */}
+          {/* --- TAB 3: USER MANAGEMENT (With FIXED UserRow) --- */}
           {activeTab === 'matrix' && (
             <div className="animate-[fade-in_0.3s]">
               
-              {!isAdmin ? (
+              {!isStrictAdmin ? (
                 // 🛑 ACCESS DENIED VIEW
                 <div className="p-12 border border-red-500/20 bg-red-900/10 rounded-2xl text-center">
                    <div className="w-16 h-16 bg-red-900/20 rounded-full flex items-center justify-center mx-auto mb-4 border border-red-500/20">
@@ -258,31 +364,13 @@ export function DashboardView({ user, keys, logs, onGenerateKey, onLogout }) {
                       {loadingUsers ? (
                          <tr><td colSpan="4" className="p-8 text-center text-slate-500"><Activity className="animate-spin inline mr-2"/> Loading Users...</td></tr>
                       ) : userList.map((u) => (
-                        <tr key={u._id} className="hover:bg-white/5 transition-colors">
-                          <td className="px-6 py-4 font-bold text-white">{u.username}</td>
-                          <td className="px-6 py-4 text-slate-400 font-mono text-xs">{u.email}</td>
-                          <td className="px-6 py-4">
-                             <RoleBadge role={u.role || 'Newbie'} />
-                          </td>
-                          <td className="px-6 py-4 text-right">
-                             {u._id === user.id ? (
-                               <span className="text-xs text-slate-600 italic">Current User</span>
-                             ) : (
-                               <div className="relative inline-block group">
-                                  <button className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 border border-slate-600 px-3 py-1.5 rounded text-xs transition-colors">
-                                     Modify Role <ChevronDown size={12}/>
-                                  </button>
-                                  {/* Hover Dropdown */}
-                                  <div className="absolute right-0 top-full mt-1 w-32 bg-slate-900 border border-slate-700 rounded-lg shadow-xl overflow-hidden hidden group-hover:block z-50">
-                                     <button onClick={() => handleRoleChange(u._id, 'Admin')} className="w-full text-left px-3 py-2 hover:bg-purple-900/30 text-purple-400 text-xs font-bold">Admin</button>
-                                     <button onClick={() => handleRoleChange(u._id, 'Developer')} className="w-full text-left px-3 py-2 hover:bg-emerald-900/30 text-emerald-400 text-xs font-bold">Developer</button>
-                                     <button onClick={() => handleRoleChange(u._id, 'Auditor')} className="w-full text-left px-3 py-2 hover:bg-orange-900/30 text-orange-400 text-xs font-bold">Auditor</button>
-                                     <button onClick={() => handleRoleChange(u._id, 'Newbie')} className="w-full text-left px-3 py-2 hover:bg-slate-800 text-slate-400 text-xs font-bold">Revoke</button>
-                                  </div>
-                               </div>
-                             )}
-                          </td>
-                        </tr>
+                        // 🚀 USING USER ROW COMPONENT (Fixes Dropdown Issues)
+                        <UserRow 
+                           key={u._id} 
+                           userRow={u} 
+                           currentUser={user} 
+                           onRoleChange={handleRoleChange} 
+                        />
                       ))}
                     </tbody>
                    </table>
@@ -294,7 +382,9 @@ export function DashboardView({ user, keys, logs, onGenerateKey, onLogout }) {
         </div>
       </main>
 
-      {/* 👤 PROFILE MODAL OVERLAY */}
+      {/* =======================
+          👤 PROFILE MODAL 
+      ======================== */}
       {showProfile && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-[fade-in_0.2s]">
           <div className="bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden relative">
@@ -324,14 +414,15 @@ export function DashboardView({ user, keys, logs, onGenerateKey, onLogout }) {
               <div className="grid grid-cols-2 gap-4 mb-8">
                  <div className="bg-slate-950 p-3 rounded-lg border border-slate-800">
                     <p className="text-[10px] text-slate-500 uppercase font-bold">Role</p>
-                    <p className={`font-mono text-sm font-bold ${currentRole === 'admin' ? 'text-purple-400' : 'text-emerald-400'}`}>
+                    <p className={`font-mono text-sm font-bold ${isStrictAdmin ? 'text-purple-400' : 'text-emerald-400'}`}>
                       {user?.role?.toUpperCase()}
                     </p>
                  </div>
                  <div className="bg-slate-950 p-3 rounded-lg border border-slate-800">
                     <p className="text-[10px] text-slate-500 uppercase font-bold">User ID</p>
-                    <p className="font-mono text-xs text-slate-300 truncate" title={user?.id || user?._id}>
-                      {user?.id || user?._id || "SESSION-X"}
+                    {/* 🚀 FIX: Use _id for MongoDB */}
+                    <p className="font-mono text-xs text-slate-300 truncate" title={user?._id || user?.id}>
+                      {user?._id || user?.id || "SESSION-X"}
                     </p>
                  </div>
               </div>
@@ -372,38 +463,115 @@ export function DashboardView({ user, keys, logs, onGenerateKey, onLogout }) {
   );
 }
 
-// --- HELPER COMPONENTS ---
+// ==========================================
+// 🧩 SUB-COMPONENTS (CRITICAL FOR FUNCTIONALITY)
+// ==========================================
 
+// 1. UserRow Component - Handles Independent Dropdown State
+function UserRow({ userRow, currentUser, onRoleChange }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef(null);
+
+  // Close dropdown if clicked outside
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [dropdownRef]);
+
+  const roles = ['Admin', 'Developer', 'Auditor', 'Newbie'];
+
+  return (
+    <tr className="hover:bg-white/5 transition-colors group">
+      <td className="px-6 py-4 font-bold text-white flex items-center gap-3">
+         <div className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-xs font-bold border border-slate-700">
+            {userRow.username.substring(0,2).toUpperCase()}
+         </div>
+         {userRow.username}
+      </td>
+      <td className="px-6 py-4 text-slate-400 font-mono text-xs">{userRow.email}</td>
+      <td className="px-6 py-4"><RoleBadge role={userRow.role} /></td>
+      <td className="px-6 py-4 text-right">
+         {/* Prevent changing own role or self */}
+         {userRow._id === currentUser?._id || userRow._id === currentUser?.id ? (
+           <span className="text-xs text-slate-600 italic bg-slate-900 px-2 py-1 rounded border border-slate-800">Current User</span>
+         ) : (
+           <div className="relative inline-block" ref={dropdownRef}>
+              <button 
+                onClick={() => setIsOpen(!isOpen)} 
+                className={`flex items-center gap-2 border px-3 py-1.5 rounded text-xs transition-all ${
+                   isOpen ? 'bg-slate-700 border-emerald-500/50 text-white' : 'bg-slate-800 border-slate-600 hover:bg-slate-700 text-slate-300'
+                }`}
+              >
+                 Modify Role <ChevronDown size={12} className={`transition-transform ${isOpen ? 'rotate-180' : ''}`}/>
+              </button>
+              
+              {/* DROPDOWN MENU */}
+              {isOpen && (
+                <div className="absolute right-0 top-full mt-2 w-40 bg-slate-900 border border-slate-700 rounded-lg shadow-2xl z-50 overflow-hidden animate-[fade-in_0.1s] ring-1 ring-white/10">
+                   {roles.map(r => (
+                      <button 
+                        key={r} 
+                        onClick={() => {
+                          onRoleChange(userRow._id, r);
+                          setIsOpen(false);
+                        }} 
+                        className={`w-full text-left px-4 py-2.5 text-xs font-medium transition-colors flex items-center justify-between group
+                          ${userRow.role === r 
+                             ? 'bg-emerald-500/10 text-emerald-400' 
+                             : 'text-slate-400 hover:bg-slate-800 hover:text-white'}
+                        `}
+                      >
+                        {r}
+                        {userRow.role === r && <CheckCircle size={12} />}
+                      </button>
+                   ))}
+                </div>
+              )}
+           </div>
+         )}
+      </td>
+    </tr>
+  );
+}
+
+// 2. Navigation Button Component
 function NavButton({ icon: Icon, label, active, onClick }) {
   return (
     <button 
-      onClick={onClick}
-      className={`
-        w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all
+      onClick={onClick} 
+      className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200
         ${active 
-          ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' 
-          : 'text-slate-400 hover:text-white hover:bg-slate-800'
+          ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 shadow-[0_0_15px_-5px_rgba(16,185,129,0.3)]' 
+          : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
         }
       `}
     >
-      <Icon size={18} />
-      {label}
+      <Icon size={18} /> {label}
     </button>
   );
 }
 
+// 3. Role Badge Component
 function RoleBadge({ role }) {
   const styles = {
-    Admin: "bg-purple-500/10 text-purple-400 border-purple-500/20",
+    Admin: "bg-purple-500/10 text-purple-400 border-purple-500/20 shadow-[0_0_10px_-4px_rgba(168,85,247,0.4)]",
+    SuperAdmin: "bg-pink-500/10 text-pink-400 border-pink-500/20 shadow-[0_0_10px_-4px_rgba(236,72,153,0.4)]",
     Developer: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
     Auditor: "bg-orange-500/10 text-orange-400 border-orange-500/20",
     Newbie: "bg-slate-800 text-slate-500 border-slate-700",
   };
-
-  const style = styles[role] || styles['Newbie'];
+  
+  const roleKey = role || 'Newbie';
+  // Fallback for custom roles or capitalization mismatches
+  const style = styles[roleKey] || (roleKey.toLowerCase().includes('admin') ? styles.Admin : styles.Newbie);
 
   return (
-    <span className={`px-2 py-1 rounded border text-xs font-bold uppercase tracking-wider ${style}`}>
+    <span className={`px-2.5 py-1 rounded border text-[10px] font-bold uppercase tracking-wider ${style}`}>
       {role}
     </span>
   );

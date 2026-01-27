@@ -104,7 +104,6 @@ export const verifyMFA = async (req, res) => {
     res.status(500).json({ error: 'Verification failed' });
   }
 };
-// ... (Keep existing imports and transporter setup) ...
 
 // 4. 🚀 GOOGLE ACCESS (The Fix for Existing Users)
 export const googleAccess = async (req, res) => {
@@ -163,5 +162,18 @@ export const googleAccess = async (req, res) => {
   } catch (error) {
     console.error("Google Auth Error:", error);
     res.status(500).json({ error: 'Google Auth Failed' });
+  }
+};
+
+// 5. GET CURRENT USER (For Refresh)
+export const getMe = async (req, res) => {
+  try {
+    // req.user is set by the verifyToken middleware
+    const user = await User.findById(req.user.id).select('-passwordHash');
+    if (!user) return res.status(404).json({ success: false, error: 'User not found' });
+    
+    res.json({ success: true, user });
+  } catch (error) {
+    res.status(500).json({ success: false, error: 'Server Error' });
   }
 };
