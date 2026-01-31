@@ -2,6 +2,47 @@ import APIKey from '../models/APIKey.js';
 import AuditLog from '../models/AuditLog.js';
 import { generateAPIKey, encrypt, hashFingerprint, signData } from '../utils/crypto.js';
 
+// @desc    Delete an API Key
+// @route   DELETE /keys/:id
+export const deleteKey = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+
+    // Find the key and verify it belongs to the user
+    const key = await APIKey.findById(id);
+    
+    if (!key) {
+      return res.status(404).json({ error: "Key not found" });
+    }
+
+    if (key.owner.toString() !== userId) {
+      return res.status(403).json({ error: "Unauthorized: This key belongs to another user" });
+    }
+
+    // Delete the key
+      await key.deleteOne();
+
+    // Log the deletion
+    const logEntry = {
+      action: 'KEY_DELETED',
+      actor: userId,
+      timestamp: new Date(),
+      details: { keyId: id, keyName: key.name }
+    };
+
+    const signature = signData(logEntry, process.env.MASTER_KEY);
+
+    await AuditLog.create({
+      ...logEntry,
+      integritySignature: signature
+    });
+
+    res.json({ msg: "Key deleted successfully", keyId: id });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
 // @desc    Generate a new API Key
 // @route   POST /keys/generate
 export const generateKey = async (req, res) => {
@@ -67,14 +108,17 @@ export const getMyKeys = async (req, res) => {
   try {
     const keys = await APIKey.find({ owner: req.user.id });
     
+    console.log("DEBUG: Retrieved keys for user", req.user.id, keys);
+
     // We do NOT decrypt the keys here. We only return metadata.
-    res.json(keys.map(k => ({
+      res.json(keys.map(k => ({
       id: k._id,
       name: k.name,
       fingerprint: k.keyFingerprint, // Safe to show
+      prefix: k.prefix,
       scopes: k.scopes,
       status: k.isActive ? 'Active' : 'Revoked',
-      created: k.createdAt
+        createdAt: k.createdAt
     })));
   } catch (error) {
     res.status(500).json({ error: error.message });

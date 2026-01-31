@@ -57,8 +57,9 @@ export default function LoginView() {
       setLoading(true);
       try {
         // Fetch user info from Google
+        const GOOGLE_USERINFO_URL = import.meta.env.VITE_GOOGLE_USERINFO_URL || 'https://www.googleapis.com/oauth2/v3/userinfo';
         const userInfo = await axios.get(
-          'https://www.googleapis.com/oauth2/v3/userinfo',
+          GOOGLE_USERINFO_URL,
           { headers: { Authorization: `Bearer ${tokenResponse.access_token}` } }
         );
 

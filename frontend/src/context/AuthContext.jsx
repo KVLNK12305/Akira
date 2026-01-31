@@ -94,7 +94,6 @@ export const AuthProvider = ({ children }) => {
     setToken(null);
     setUser(null);
     setTempEmail(null);
-    window.location.href = "/"; // Force full reload to clear any memory states
   };
 
   // 6. REGISTER

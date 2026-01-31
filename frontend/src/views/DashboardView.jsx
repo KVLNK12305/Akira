@@ -2,9 +2,10 @@ import { useState, useEffect, useRef } from "react";
 import { 
   Shield, Key, FileText, Lock, Users, Activity, 
   CheckCircle, XCircle, LogOut, Fingerprint, AlertTriangle, 
-  Cpu, Thermometer, ChevronDown, Save, Bell
+  Cpu, Thermometer, ChevronDown, Save, Bell, Trash2, Book
 } from "lucide-react";
 import api from "../api/axios"; 
+import { DocumentationView } from "./DocumentationView";
 
 // --- HELPER FUNCTIONS ---
 
@@ -15,9 +16,7 @@ const formatDate = (dateStr) => {
 };
 
 // --- MAIN COMPONENT ---
-
-export function DashboardView({ user, keys, logs, onGenerateKey, onLogout }) {
-  // ----------------------------------------
+export function DashboardView({ user, keys, logs, onGenerateKey, onLogout, onDeleteKey }) {
   // 1. STATE MANAGEMENT
   // ----------------------------------------
   const [activeTab, setActiveTab] = useState("matrix"); // Default to User Management
@@ -110,6 +109,23 @@ export function DashboardView({ user, keys, logs, onGenerateKey, onLogout }) {
     }
   };
 
+  const handleDeleteKey = async (keyId, keyName) => {
+    if (!window.confirm(`Are you sure you want to delete the key "${keyName}"? This action cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      await api.delete(`/keys/${keyId}`);
+      // Remove from UI
+      onDeleteKey?.(keyId);
+      alert("Key deleted successfully");
+    } catch (err) {
+      console.error("Failed to delete key:", err);
+      alert("Failed to delete key: " + (err.response?.data?.error || "Server Error"));
+    }
+  };
+
+
   // ----------------------------------------
   // 5. RENDER
   // ----------------------------------------
@@ -153,8 +169,14 @@ export function DashboardView({ user, keys, logs, onGenerateKey, onLogout }) {
             active={activeTab === 'matrix'} 
             onClick={() => setActiveTab('matrix')} 
           />
-        </nav>
 
+          <NavButton 
+            icon={Book} 
+            label={`Documentation (${currentRole})`} 
+            active={activeTab === 'docs'} 
+            onClick={() => setActiveTab('docs')} 
+          />
+        </nav>
         {/* User Profile Footer (Clickable) */}
         <div 
           onClick={() => setShowProfile(true)}
@@ -191,6 +213,7 @@ export function DashboardView({ user, keys, logs, onGenerateKey, onLogout }) {
               {activeTab === 'keys' && "Key Vault"}
               {activeTab === 'logs' && "Security Events"}
               {activeTab === 'matrix' && "Identity & Access Control"}
+              {activeTab === 'docs' && "Documentation"}
             </h2>
             <p className="text-slate-400 text-sm">
               Session ID: <span className="font-mono text-emerald-400">{user?._id?.substring(0,8) || user?.id?.substring(0,8) || "SESSION-ACTIVE"}</span>
@@ -259,14 +282,15 @@ export function DashboardView({ user, keys, logs, onGenerateKey, onLogout }) {
                       <th className="px-6 py-4">Encryption</th>
                       <th className="px-6 py-4">Status</th>
                       <th className="px-6 py-4">Created</th>
+                      <th className="px-6 py-4">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-800">
-                      {keys.map((k) => (
+                      {keys && keys.map((k) => (
                         <tr key={k.id} className="hover:bg-white/5 transition-colors group">
                           <td className="px-6 py-4 font-mono text-slate-300">
-                                {k.prefix && <span className="bg-emerald-500 text-black px-2 py-0.5 rounded text-xs font-bold mr-2">NEW</span>}
-                                {k.fingerprint || "****"}
+                                {k?.prefix && <span className="bg-emerald-500 text-black px-2 py-0.5 rounded text-xs font-bold mr-2">NEW</span>}
+                                {k?.fingerprint || "****"}
                           </td>
                           <td className="px-6 py-4 text-emerald-400 font-mono text-xs">
                              <span className="flex items-center gap-2"><Lock size={12}/> AES-256-GCM</span>
@@ -274,11 +298,19 @@ export function DashboardView({ user, keys, logs, onGenerateKey, onLogout }) {
                           <td className="px-6 py-4">
                              <span className="px-2 py-1 bg-emerald-500/10 text-emerald-400 text-xs rounded border border-emerald-500/20">Active</span>
                           </td>
-                          <td className="px-6 py-4 text-slate-500 text-xs font-mono">{formatDate(k.createdAt)}</td>
+                          <td className="px-6 py-4 text-slate-500 text-xs font-mono">{formatDate(k?.createdAt)}</td>
+                          <td className="px-6 py-4">
+                            <button 
+                              onClick={() => handleDeleteKey(k.id, k.name)}
+                              className="bg-red-500/10 hover:bg-red-500/20 text-red-400 hover:text-red-300 p-2 rounded transition-colors flex items-center gap-1 text-xs"
+                            >
+                              <Trash2 size={14} /> Delete
+                            </button>
+                          </td>
                         </tr>
                       ))}
-                      {keys.length === 0 && (
-                        <tr><td colSpan="4" className="p-8 text-center text-slate-600 italic">No active keys found.</td></tr>
+                      {!keys || keys.length === 0 && (
+                        <tr><td colSpan="5" className="p-8 text-center text-slate-600 italic">No active keys found.</td></tr>
                       )}
                   </tbody>
                 </table>
@@ -317,6 +349,16 @@ export function DashboardView({ user, keys, logs, onGenerateKey, onLogout }) {
                     <div className="p-8 text-center text-slate-600">No logs generated yet.</div>
                   )}
               </div>
+            </div>
+          )}
+
+          {/* --- TAB 3: DOCUMENTATION --- */}
+          {activeTab === 'docs' && (
+            <div className="animate-[fade-in_0.3s]">
+              <DocumentationView 
+                onBack={() => setActiveTab(isHighPrivilege ? 'keys' : 'logs')} 
+                roleLabel={currentRole}
+              />
             </div>
           )}
 
@@ -512,7 +554,7 @@ function UserRow({ userRow, currentUser, onRoleChange }) {
               
               {/* DROPDOWN MENU */}
               {isOpen && (
-                <div className="absolute right-0 top-full mt-2 w-40 bg-slate-900 border border-slate-700 rounded-lg shadow-2xl z-50 overflow-hidden animate-[fade-in_0.1s] ring-1 ring-white/10">
+                <div className="absolute right-0 top-full mt-2 w-40 bg-slate-900 border border-slate-700 rounded-lg shadow-2xl overflow-hidden animate-[fade-in_0.1s] ring-1 ring-white/10" style={{ zIndex: 9999 }}>
                    {roles.map(r => (
                       <button 
                         key={r} 

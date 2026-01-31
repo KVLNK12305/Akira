@@ -98,13 +98,31 @@ function MainLogic() {
     setLogs([]);
   };
 
+  const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
+
   const handleGenerateKey = async (name, scopes) => {
     try {
       // Call Backend
-      const res = await api.post('/keys', { name, scopes });
+      const res = await api.post(`${API_URL}/api/keys/generate`, { name, scopes });
+      // console.log("Key generated:", res.data);
       
-      // Add to local state immediately
-      setKeys(prev => [res.data.key, ...prev]);
+      // Fetch updated keys from backend to get fingerprint and complete data
+      try {
+        const keysRes = await api.get('/keys');
+        setKeys(keysRes.data);
+      } catch (err) {
+        console.error("Failed to refresh keys:", err);
+        // Fallback: Add to local state with temporary data
+        const newKey = {
+          id: res.data.keyId,
+          name: name,
+          fingerprint: undefined,
+          scopes: res.data.scopes || scopes,
+          status: 'Active',
+          createdAt: new Date().toISOString()
+        };
+        setKeys(prev => [newKey, ...prev]);
+      }
       
       // Add a log entry locally for "Alive" feel
       setLogs(prev => [{
@@ -119,6 +137,10 @@ function MainLogic() {
       console.error(err);
       alert("Failed to generate key: " + (err.response?.data?.error || "Server Error"));
     }
+  };
+
+  const handleDeleteKey = (keyId) => {
+    setKeys(prev => prev.filter(k => k.id !== keyId));
   };
 
   // --- 4. VIEW RENDERING ---
@@ -152,6 +174,7 @@ function MainLogic() {
           logs={logs} 
           onGenerateKey={handleGenerateKey} 
           onLogout={handleLogout} 
+          onDeleteKey={handleDeleteKey}
         />
       );
       

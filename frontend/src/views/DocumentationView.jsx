@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { Book, Shield, Code, Terminal, ArrowLeft, Lock, Server, Layers } from "lucide-react";
+import { Book, Shield, Code, Terminal, ArrowLeft, Lock, Server, Layers} from "lucide-react";
 
-export function DocumentationView({ onBack }) {
+export function DocumentationView({ onBack, roleLabel }) {
   const [activeSection, setActiveSection] = useState("intro");
 
   const sections = [
@@ -23,6 +23,9 @@ export function DocumentationView({ onBack }) {
               <Layers className="w-5 h-5 text-emerald-400" />
             </div>
             SecureDocs <span className="text-[10px] text-emerald-500 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">v2.4</span>
+            {roleLabel && (
+              <span className="text-[10px] text-slate-300 bg-slate-800/80 px-2 py-0.5 rounded border border-slate-700/60 uppercase">{roleLabel}</span>
+            )}
           </div>
           <button 
             onClick={onBack}
