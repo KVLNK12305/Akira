@@ -2,7 +2,8 @@ import { useState, useEffect, useRef } from "react";
 import { 
   Shield, Key, FileText, Lock, Users, Activity, 
   CheckCircle, XCircle, LogOut, Fingerprint, AlertTriangle, 
-  Cpu, Thermometer, ChevronDown, Save, Bell, Trash2, Book
+  Cpu, Thermometer, ChevronDown, Save, Bell, Trash2, Book,
+  RefreshCw // 🟢 NEW ICON FOR ROTATION
 } from "lucide-react";
 import api from "../api/axios"; 
 import { DocumentationView } from "./DocumentationView";
@@ -16,13 +17,18 @@ const formatDate = (dateStr) => {
 };
 
 // --- MAIN COMPONENT ---
-export function DashboardView({ user, keys, logs, onGenerateKey, onLogout, onDeleteKey }) {
+export function DashboardView({ user, keys, logs, onGenerateKey, onLogout, onDeleteKey, onRefreshKeys }) {
+  // 🟢 onRefreshKeys prop allows us to refresh the list after rotation
+
   // 1. STATE MANAGEMENT
   // ----------------------------------------
   const [activeTab, setActiveTab] = useState("matrix"); // Default to User Management
   const [userList, setUserList] = useState([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
+
+  // 🦀 RUST FEATURE: State for the new key (Only shown once)
+  const [newRotatedKey, setNewRotatedKey] = useState(null);
   
   // 🖥️ Rust Core Simulation State (The "Alive" Widget)
   const [systemStats, setSystemStats] = useState({
@@ -78,6 +84,32 @@ export function DashboardView({ user, keys, logs, onGenerateKey, onLogout, onDel
   // ----------------------------------------
   // 4. API HANDLERS
   // ----------------------------------------
+
+  // 🦀 RUST FEATURE: ROTATION HANDLER
+  const handleRotate = async (keyId) => {
+    // 1. Safety Check (Viva Requirement)
+    if (!window.confirm("⚠️ ROTATE KEY?\nThis will INVALIDATE the old key immediately.\nThe new key will be generated using the RUST Chaos Engine.")) {
+      return;
+    }
+
+    try {
+      // 2. Call the Rust Endpoint
+      const res = await api.post(`/keys/${keyId}/rotate`);
+
+      if (res.data.success) {
+        // 3. Show the Green Box with the new key
+        setNewRotatedKey(res.data.newApiKey);
+        
+        // 4. Refresh the list to show new metadata (like Expiry/Fingerprint updates)
+        if (onRefreshKeys) onRefreshKeys(); 
+        
+        alert("✅ Key Rotated via Rust Engine!");
+      }
+    } catch (err) {
+      console.error("Rotation failed:", err);
+      alert("❌ Rotation Failed: " + (err.response?.data?.error || err.message));
+    }
+  };
 
   const fetchUsers = async () => {
     setLoadingUsers(true);
@@ -258,6 +290,36 @@ export function DashboardView({ user, keys, logs, onGenerateKey, onLogout, onDel
           {/* --- TAB 1: API KEYS --- */}
           {activeTab === 'keys' && (
             <div className="space-y-6 animate-[fade-in_0.3s]">
+               
+               {/* 🦀 RUST FEATURE: NEW KEY DISPLAY (Only shows after rotation) */}
+               {newRotatedKey && (
+                <div className="mb-6 p-4 border-l-4 border-green-500 bg-green-900/20 rounded-r-lg backdrop-blur-md animate-pulse">
+                  <h3 className="text-green-400 font-bold mb-2 flex items-center">
+                    <span className="text-xl mr-2">🦀</span> New Key Generated (Rust Entropy)
+                  </h3>
+                  <p className="text-gray-300 text-sm mb-2">
+                    Please copy this key now. It will not be shown again.
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <code className="block w-full p-3 bg-black/50 rounded border border-green-500/30 text-green-300 font-mono text-lg break-all">
+                      {newRotatedKey}
+                    </code>
+                    <button 
+                      onClick={() => {navigator.clipboard.writeText(newRotatedKey); alert("Copied!");}}
+                      className="p-3 bg-green-600 hover:bg-green-500 text-white rounded font-bold transition-all"
+                    >
+                      COPY
+                    </button>
+                  </div>
+                  <button 
+                    onClick={() => setNewRotatedKey(null)}
+                    className="mt-4 text-xs text-gray-400 hover:text-white underline"
+                  >
+                    Close this notification
+                  </button>
+                </div>
+               )}
+
                {/* Generator Card */}
                <div className="p-6 rounded-2xl bg-gradient-to-r from-emerald-900/20 to-slate-900 border border-emerald-500/20 flex justify-between items-center shadow-lg">
                   <div>
@@ -300,12 +362,24 @@ export function DashboardView({ user, keys, logs, onGenerateKey, onLogout, onDel
                           </td>
                           <td className="px-6 py-4 text-slate-500 text-xs font-mono">{formatDate(k?.createdAt)}</td>
                           <td className="px-6 py-4">
-                            <button 
-                              onClick={() => handleDeleteKey(k.id, k.name)}
-                              className="bg-red-500/10 hover:bg-red-500/20 text-red-400 hover:text-red-300 p-2 rounded transition-colors flex items-center gap-1 text-xs"
-                            >
-                              <Trash2 size={14} /> Delete
-                            </button>
+                            <div className="flex gap-2">
+                                {/* 🦀 RUST FEATURE: ROTATE BUTTON */}
+                                <button
+                                  onClick={() => handleRotate(k.id)}
+                                  className="bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-400 hover:text-yellow-300 p-2 rounded transition-colors flex items-center gap-1 text-xs border border-yellow-500/20"
+                                  title="Rotate using Rust Engine"
+                                >
+                                  <RefreshCw size={14} /> Rotate
+                                </button>
+
+                                {/* Delete Button (Existing) */}
+                                <button 
+                                  onClick={() => handleDeleteKey(k.id, k.name)}
+                                  className="bg-red-500/10 hover:bg-red-500/20 text-red-400 hover:text-red-300 p-2 rounded transition-colors flex items-center gap-1 text-xs"
+                                >
+                                  <Trash2 size={14} /> Delete
+                                </button>
+                            </div>
                           </td>
                         </tr>
                       ))}
