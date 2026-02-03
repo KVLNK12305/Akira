@@ -1,5 +1,5 @@
 import express from 'express';
-import { generateKey, getMyKeys, deleteKey } from '../controllers/keyController.js';
+import { generateKey, getMyKeys, deleteKey, rotateKey } from '../controllers/keyController.js'; 
 import { protect } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
@@ -8,5 +8,6 @@ const router = express.Router();
 router.post('/generate', protect, generateKey);
 router.get('/', protect, getMyKeys);
 router.delete('/:id', protect, deleteKey);
+router.post('/:id/rotate', protect, rotateKey);
 
 export default router;
