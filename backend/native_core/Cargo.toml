@@ -1,0 +1,12 @@
+[package]
+name = "native_core"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"] # This tells Rust to make a .so/.dylib file, not an .exe
+
+[dependencies]
+rand = "0.8"
+base64 = "0.21"
+libc = "0.2"
