@@ -11,6 +11,7 @@ import cookieParser from 'cookie-parser';
 import connectDB from './src/config/db.js'; // Note the .js extension
 import authRoutes from './src/routes/authRoutes.js'; // <-- NEW
 import keyRoutes from './src/routes/keyRoutes.js';   // <-- NEW
+import auditRoutes from './src/routes/auditRoutes.js'; // 🟢 Import this
 
 // Initialize App
 const app = express();
@@ -32,6 +33,7 @@ app.use(cors({
 
 app.use('/api/auth', authRoutes); // <-- NEW
 app.use('/api/keys', keyRoutes);  // <-- NEW
+app.use('/api/audit-logs', auditRoutes);
 app.use('/api/v1', dataRoutes); // <-- Mount here
 app.use('/api/users', userRoutes);
 
