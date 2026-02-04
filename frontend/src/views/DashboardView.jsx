@@ -3,7 +3,7 @@ import {
   Shield, Key, FileText, Lock, Users, Activity,
   CheckCircle, XCircle, LogOut, Fingerprint, AlertTriangle,
   Cpu, Thermometer, ChevronDown, Save, Bell, Trash2, Book,
-  RefreshCw, Eye, Terminal, ArrowRight // 🟢 NEW ICONS
+  RefreshCw, Eye, Terminal, ArrowRight, Menu, X
 } from "lucide-react";
 import api, { API_URL } from "../api/axios";
 import { DocumentationView } from "./DocumentationView";
@@ -44,6 +44,9 @@ export function DashboardView({ user, keys, logs, onGenerateKey, onLogout, onDel
   const [nhiSteps, setNhiSteps] = useState([]);
   const [nhiStatus, setNhiStatus] = useState("idle"); // idle, validating, success, error
   const [nhiResult, setNhiResult] = useState(null);
+
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [logSearch, setLogSearch] = useState("");
 
   // ----------------------------------------
   // 2. SECURITY & RBAC LOGIC
@@ -214,12 +217,26 @@ export function DashboardView({ user, keys, logs, onGenerateKey, onLogout, onDel
   // 5. RENDER
   // ----------------------------------------
   return (
-    <div className="min-h-screen bg-slate-950 flex text-slate-200 font-sans selection:bg-emerald-500/30">
+    <div className="h-screen bg-slate-950 flex text-slate-200 font-sans selection:bg-emerald-500/30 overflow-hidden">
+
+      {/* 📱 MOBILE HEADER */}
+      <div className="md:hidden fixed top-0 w-full z-40 bg-slate-900/80 backdrop-blur-md border-b border-slate-800 p-4 flex justify-between items-center">
+        <div className="flex items-center gap-2">
+          <Shield className="w-6 h-6 text-emerald-400" />
+          <h1 className="font-bold text-slate-100 tracking-tight">AKIRA</h1>
+        </div>
+        <button
+          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+          className="p-2 text-slate-400"
+        >
+          {isMobileMenuOpen ? <X /> : <Menu />}
+        </button>
+      </div>
 
       {/* =======================
           🟢 LEFT SIDEBAR
       ======================== */}
-      <aside className="w-64 bg-slate-900/50 border-r border-slate-800 flex flex-col backdrop-blur-xl fixed h-full z-20">
+      <aside className={`w-64 bg-slate-900/50 border-r border-slate-800 flex flex-col backdrop-blur-xl fixed h-full z-50 transition-transform duration-300 md:translate-x-0 ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="p-6 flex items-center gap-3 border-b border-slate-800/50">
           <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center border border-emerald-500/20">
             <Shield className="w-5 h-5 text-emerald-400" />
@@ -231,41 +248,35 @@ export function DashboardView({ user, keys, logs, onGenerateKey, onLogout, onDel
         </div>
 
         <nav className="flex-1 p-4 space-y-1">
-          {isHighPrivilege && (
-            <NavButton
-              icon={Key}
-              label="API Credentials"
-              active={activeTab === 'keys'}
-              onClick={() => setActiveTab('keys')}
-            />
-          )}
-
+          <NavButton
+            icon={Key}
+            label="API Credentials"
+            active={activeTab === 'keys'}
+            onClick={() => { setActiveTab('keys'); setIsMobileMenuOpen(false); }}
+          />
           <NavButton
             icon={FileText}
             label="Audit Logs"
             active={activeTab === 'logs'}
-            onClick={() => setActiveTab('logs')}
+            onClick={() => { setActiveTab('logs'); setIsMobileMenuOpen(false); }}
           />
-
           <NavButton
             icon={Users}
             label="User Management"
             active={activeTab === 'matrix'}
-            onClick={() => setActiveTab('matrix')}
+            onClick={() => { setActiveTab('matrix'); setIsMobileMenuOpen(false); }}
           />
-
           <NavButton
             icon={Book}
             label={`Documentation (${currentRole})`}
             active={activeTab === 'docs'}
-            onClick={() => setActiveTab('docs')}
+            onClick={() => { setActiveTab('docs'); setIsMobileMenuOpen(false); }}
           />
-
           <NavButton
             icon={Eye}
             label="Guardian Eye (NHI Lab)"
             active={activeTab === 'nhi'}
-            onClick={() => setActiveTab('nhi')}
+            onClick={() => { setActiveTab('nhi'); setIsMobileMenuOpen(false); }}
           />
         </nav>
         {/* User Profile Footer (Clickable) */}
@@ -303,7 +314,7 @@ export function DashboardView({ user, keys, logs, onGenerateKey, onLogout, onDel
       {/* =======================
           🔵 MAIN CONTENT AREA
       ======================== */}
-      <main className="flex-1 ml-64 p-8 relative overflow-hidden">
+      <main className="flex-1 md:ml-64 p-4 md:p-8 relative overflow-y-auto h-full pt-20 md:pt-8 custom-scrollbar">
 
         {/* HEADER & WIDGETS */}
         <header className="flex justify-between items-start mb-8 relative z-10">
@@ -404,7 +415,7 @@ export function DashboardView({ user, keys, logs, onGenerateKey, onLogout, onDel
               </div>
 
               {/* Keys Table */}
-              <div className="bg-slate-900/50 border border-slate-800 rounded-xl overflow-hidden backdrop-blur-md shadow-2xl">
+              <div className="bg-slate-900/50 border border-slate-800 rounded-xl overflow-hidden backdrop-blur-md shadow-2xl overflow-x-auto">
                 <table className="w-full text-left text-sm">
                   <thead className="bg-slate-900/80 text-slate-500 uppercase font-mono text-xs">
                     <tr>
@@ -476,20 +487,45 @@ export function DashboardView({ user, keys, logs, onGenerateKey, onLogout, onDel
                 </div>
               </div>
 
-              <div className="bg-slate-950 border border-slate-800 rounded-xl overflow-hidden font-mono text-xs shadow-xl">
-                {logs.map((log) => (
-                  <div key={log._id || log.id} className="p-4 border-b border-slate-900 flex items-center gap-4 hover:bg-slate-900/30 transition-colors">
-                    <span className="text-slate-500 min-w-[80px]">{formatDate(log.time || log.timestamp)}</span>
-                    <span className={`w-32 font-bold ${log.action?.includes('DENIED') ? 'text-red-400' : 'text-emerald-400'}`}>
-                      {log.action}
-                    </span>
-                    <span className="flex-1 text-slate-300">{log.desc || "System Event"}</span>
-                    <Shield size={10} className="text-slate-600" />
-                  </div>
-                ))}
-                {logs.length === 0 && (
-                  <div className="p-8 text-center text-slate-600">No logs generated yet.</div>
-                )}
+              <div className="flex items-center gap-3">
+                <div className="relative flex-1">
+                  <input
+                    type="text"
+                    value={logSearch}
+                    onChange={(e) => setLogSearch(e.target.value)}
+                    placeholder="Filter by action or description..."
+                    className="w-full bg-slate-900 border border-slate-800 rounded-lg px-4 py-2 text-xs focus:outline-none focus:border-emerald-500 transition-colors"
+                  />
+                  {logSearch && (
+                    <button
+                      onClick={() => setLogSearch("")}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white"
+                    >
+                      <X size={12} />
+                    </button>
+                  )}
+                </div>
+                <div className="text-[10px] text-slate-500 font-mono uppercase">
+                  MATCHES: {logs.filter(l => (l.action + l.desc).toLowerCase().includes(logSearch.toLowerCase())).length}
+                </div>
+              </div>
+
+              <div className="bg-slate-950 border border-slate-800 rounded-xl overflow-hidden font-mono text-xs shadow-xl overflow-x-auto">
+                <div className="min-w-[600px]">
+                  {logs.filter(l => (l.action + l.desc).toLowerCase().includes(logSearch.toLowerCase())).map((log) => (
+                    <div key={log._id || log.id} className="p-4 border-b border-slate-900 flex items-center gap-4 hover:bg-slate-900/30 transition-colors">
+                      <span className="text-slate-500 min-w-[80px]">{formatDate(log.time || log.timestamp)}</span>
+                      <span className={`w-32 font-bold ${log.action?.includes('DENIED') ? 'text-red-400' : 'text-emerald-400'}`}>
+                        {log.action}
+                      </span>
+                      <span className="flex-1 text-slate-300">{log.desc || "System Event"}</span>
+                      <Shield size={10} className="text-slate-600" />
+                    </div>
+                  ))}
+                  {logs.length === 0 && (
+                    <div className="p-8 text-center text-slate-600 italic">No logs generated yet.</div>
+                  )}
+                </div>
               </div>
             </div>
           )}
@@ -521,8 +557,8 @@ export function DashboardView({ user, keys, logs, onGenerateKey, onLogout, onDel
                 </div>
               ) : (
                 // ✅ ADMIN VIEW
-                <div className="bg-slate-900/50 border border-slate-800 rounded-2xl shadow-xl overflow-hidden">
-                  <div className="p-6 border-b border-slate-800 flex justify-between items-center">
+                <div className="bg-slate-900/50 border border-slate-800 rounded-2xl shadow-xl">
+                  <div className="p-6 border-b border-white/5 flex justify-between items-center">
                     <div>
                       <h3 className="text-lg font-bold text-white flex items-center gap-2">
                         <Users size={20} className="text-purple-400" />
@@ -535,29 +571,31 @@ export function DashboardView({ user, keys, logs, onGenerateKey, onLogout, onDel
                     </div>
                   </div>
 
-                  <table className="w-full text-sm">
-                    <thead className="bg-slate-800 text-slate-300">
-                      <tr>
-                        <th className="px-6 py-4 text-left">User Identity</th>
-                        <th className="px-6 py-4 text-left">Email</th>
-                        <th className="px-6 py-4 text-left">Current Role</th>
-                        <th className="px-6 py-4 text-right">Action</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-700 bg-slate-900/50">
-                      {loadingUsers ? (
-                        <tr><td colSpan="4" className="p-8 text-center text-slate-500"><Activity className="animate-spin inline mr-2" /> Loading Users...</td></tr>
-                      ) : userList.map((u) => (
-                        // 🚀 USING USER ROW COMPONENT (Fixes Dropdown Issues)
-                        <UserRow
-                          key={u._id}
-                          userRow={u}
-                          currentUser={user}
-                          onRoleChange={handleRoleChange}
-                        />
-                      ))}
-                    </tbody>
-                  </table>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm border-separate border-spacing-0">
+                      <thead className="bg-slate-800/80 backdrop-blur-md text-slate-400 font-mono text-[10px] uppercase tracking-widest">
+                        <tr>
+                          <th className="px-6 py-4 text-left font-bold border-b border-white/5">User Identity</th>
+                          <th className="px-6 py-4 text-left font-bold border-b border-white/5">Secure Email</th>
+                          <th className="px-6 py-4 text-left font-bold border-b border-white/5">Access Tier</th>
+                          <th className="px-6 py-4 text-right font-bold border-b border-white/5">Governance</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-white/5 bg-slate-900/40">
+                        {loadingUsers ? (
+                          <tr><td colSpan="4" className="p-8 text-center text-slate-500"><Activity className="animate-spin inline mr-2" /> Loading Users...</td></tr>
+                        ) : userList.map((u) => (
+                          // 🚀 USING USER ROW COMPONENT (Fixes Dropdown Issues)
+                          <UserRow
+                            key={u._id}
+                            userRow={u}
+                            currentUser={user}
+                            onRoleChange={handleRoleChange}
+                          />
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               )}
             </div>
@@ -656,6 +694,12 @@ export function DashboardView({ user, keys, logs, onGenerateKey, onLogout, onDel
                       <div className="w-2.5 h-2.5 rounded-full bg-emerald-500/50"></div>
                     </div>
                     <span className="text-[10px] font-mono text-slate-500 ml-2">AKIRA GATE v2.0 - MACHINE AUTH LOGS</span>
+                    <button
+                      onClick={() => { setNhiSteps([]); setNhiStatus("idle"); setNhiResult(null); }}
+                      className="ml-auto text-[10px] text-slate-500 hover:text-white underline"
+                    >
+                      CLEAR
+                    </button>
                   </div>
                   <div className="flex-1 p-6 font-mono text-xs overflow-y-auto space-y-3 bg-[radial-gradient(circle_at_top_right,_rgba(16,185,129,0.05),_transparent)]">
                     {nhiSteps.length === 0 && (
@@ -668,8 +712,8 @@ export function DashboardView({ user, keys, logs, onGenerateKey, onLogout, onDel
                     {nhiSteps.map((step, idx) => (
                       <div key={idx} className={`animate-[fade-in_0.3s] flex gap-4 ${step.stage === 'DENIED' ? 'text-red-400' : 'text-slate-400'}`}>
                         <span className={`w-20 font-bold ${step.stage === 'SUCCESS' ? 'text-emerald-400' :
-                            step.stage === 'DENIED' ? 'text-red-400' :
-                              'text-slate-500'
+                          step.stage === 'DENIED' ? 'text-red-400' :
+                            'text-slate-500'
                           }`}>[{step.stage}]</span>
                         <span className="flex-1">{step.msg}</span>
                         {idx === nhiSteps.length - 1 && nhiStatus === 'validating' && <Activity size={12} className="animate-spin text-emerald-500" />}
@@ -710,18 +754,40 @@ export function DashboardView({ user, keys, logs, onGenerateKey, onLogout, onDel
 // 1. UserRow Component - Handles Independent Dropdown State
 function UserRow({ userRow, currentUser, onRoleChange }) {
   const [isOpen, setIsOpen] = useState(false);
+  const [coords, setCoords] = useState({ top: 0, left: 0 });
+  const [openUpwards, setOpenUpwards] = useState(false);
   const dropdownRef = useRef(null);
+  const triggerRef = useRef(null);
 
-  // Close dropdown if clicked outside
+  // Close dropdown if clicked outside + Handle Positioning
   useEffect(() => {
     function handleClickOutside(event) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
         setIsOpen(false);
       }
     }
+
+    if (isOpen && triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect();
+      setCoords({ top: rect.bottom, left: rect.left });
+      const spaceBelow = window.innerHeight - rect.bottom;
+      setOpenUpwards(spaceBelow < 220); // Height of dropdown + some margin
+      if (spaceBelow < 220) {
+        setCoords({ top: rect.top, left: rect.left });
+      }
+    }
+
+    const handleScroll = () => {
+      if (isOpen) setIsOpen(false);
+    };
+
     document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [dropdownRef]);
+    window.addEventListener("scroll", handleScroll, true); // Catch scroll in parents
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      window.removeEventListener("scroll", handleScroll, true);
+    };
+  }, [isOpen, dropdownRef]);
 
   const roles = ['Admin', 'Developer', 'Auditor', 'Newbie'];
 
@@ -746,37 +812,60 @@ function UserRow({ userRow, currentUser, onRoleChange }) {
       <td className="px-6 py-4 text-right">
         {/* Prevent changing own role or self */}
         {userRow._id === currentUser?._id || userRow._id === currentUser?.id ? (
-          <span className="text-xs text-slate-600 italic bg-slate-900 px-2 py-1 rounded border border-slate-800">Current User</span>
+          <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest bg-slate-900/50 px-3 py-1.5 rounded-full border border-slate-800">
+            System Identity
+          </span>
         ) : (
           <div className="relative inline-block" ref={dropdownRef}>
             <button
+              ref={triggerRef}
               onClick={() => setIsOpen(!isOpen)}
-              className={`flex items-center gap-2 border px-3 py-1.5 rounded text-xs transition-all ${isOpen ? 'bg-slate-700 border-emerald-500/50 text-white' : 'bg-slate-800 border-slate-600 hover:bg-slate-700 text-slate-300'
+              className={`flex items-center gap-2 border px-4 py-2 rounded-full text-xs font-bold transition-all duration-300 ring-offset-2 ring-offset-slate-950
+                ${isOpen
+                  ? 'bg-emerald-500 border-emerald-400 text-black shadow-[0_0_20px_rgba(16,185,129,0.4)] ring-2 ring-emerald-500/20'
+                  : 'bg-slate-800/50 border-slate-700 hover:border-slate-500 text-slate-200 hover:bg-slate-700'
                 }`}
             >
-              Modify Role <ChevronDown size={12} className={`transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+              Modify Role
+              <ChevronDown size={14} className={`transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`} />
             </button>
 
-            {/* DROPDOWN MENU */}
+            {/* DROPDOWN MENU - USING FIXED POSITIONING FOR PORTAL EFFECT */}
             {isOpen && (
-              <div className="absolute right-0 top-full mt-2 w-40 bg-slate-900 border border-slate-700 rounded-lg shadow-2xl overflow-hidden animate-[fade-in_0.1s] ring-1 ring-white/10" style={{ zIndex: 9999 }}>
-                {roles.map(r => (
-                  <button
-                    key={r}
-                    onClick={() => {
-                      onRoleChange(userRow._id, r);
-                      setIsOpen(false);
-                    }}
-                    className={`w-full text-left px-4 py-2.5 text-xs font-medium transition-colors flex items-center justify-between group
-                          ${userRow.role === r
-                        ? 'bg-emerald-500/10 text-emerald-400'
-                        : 'text-slate-400 hover:bg-slate-800 hover:text-white'}
-                        `}
-                  >
-                    {r}
-                    {userRow.role === r && <CheckCircle size={12} />}
-                  </button>
-                ))}
+              <div
+                className={`fixed ${openUpwards ? '-translate-y-[calc(100%+12px)]' : 'mt-3'} w-48 bg-slate-900/95 backdrop-blur-2xl border border-white/10 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] overflow-hidden animate-[in_0.2s_ease-out] origin-top-right ring-1 ring-white/10`}
+                style={{
+                  zIndex: 10000,
+                  top: coords.top,
+                  left: coords.left + 192 - 192, // Manual right-align logic below
+                  transform: openUpwards ? 'translate(-100% , -100%)' : 'translateX(-100%)' // Shift to align right edge
+                }}
+              >
+                <div
+                  ref={dropdownRef}
+                  className="p-1.5 space-y-1"
+                >
+                  {roles.map(r => (
+                    <button
+                      key={r}
+                      onClick={() => {
+                        onRoleChange(userRow._id, r);
+                        setIsOpen(false);
+                      }}
+                      className={`w-full text-left px-4 py-3 text-xs font-bold transition-all duration-200 flex items-center justify-between rounded-xl group
+                            ${userRow.role === r
+                          ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                          : 'text-slate-400 hover:bg-white/5 hover:text-white'}
+                          `}
+                    >
+                      <span className="flex items-center gap-2">
+                        <div className={`w-1.5 h-1.5 rounded-full ${userRow.role === r ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.5)]' : 'bg-slate-600'}`}></div>
+                        {r}
+                      </span>
+                      {userRow.role === r && <CheckCircle size={14} className="text-emerald-400" />}
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
           </div>
@@ -806,11 +895,11 @@ function NavButton({ icon: Icon, label, active, onClick }) {
 // 3. Role Badge Component
 function RoleBadge({ role }) {
   const styles = {
-    Admin: "bg-purple-500/10 text-purple-400 border-purple-500/20 shadow-[0_0_10px_-4px_rgba(168,85,247,0.4)]",
-    SuperAdmin: "bg-pink-500/10 text-pink-400 border-pink-500/20 shadow-[0_0_10px_-4px_rgba(236,72,153,0.4)]",
-    Developer: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
-    Auditor: "bg-orange-500/10 text-orange-400 border-orange-500/20",
-    Newbie: "bg-slate-800 text-slate-500 border-slate-700",
+    Admin: "bg-purple-500/10 text-purple-400 border-purple-500/20 shadow-[0_0_15px_-5px_rgba(168,85,247,0.3)]",
+    SuperAdmin: "bg-rose-500/10 text-rose-400 border-rose-500/20 shadow-[0_0_15px_-5px_rgba(244,63,94,0.3)]",
+    Developer: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20 shadow-[0_0_15px_-5px_rgba(16,185,129,0.2)]",
+    Auditor: "bg-amber-500/10 text-amber-400 border-amber-500/20 shadow-[0_0_15px_-5px_rgba(245,158,11,0.2)]",
+    Newbie: "bg-slate-800/50 text-slate-400 border-slate-700",
   };
 
   const roleKey = role || 'Newbie';

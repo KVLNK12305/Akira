@@ -15,16 +15,26 @@ AKIRA implements a **Hybrid Identity Plane**, strictly separating human administ
 
 ### 1. The Control Plane (Human Identity)
 * **Standard:** NIST SP 800-63-2 E-Authentication.
-* **Auth:** Argon2id Hashing for passwords.
-* **Session:** JWT (JSON Web Tokens) with HTTP-Only Cookies.
-* **Role-Based Access Control (RBAC):** Admin, Developer, Auditor.
+* **Auth:** **Argon2id Hashing** for passwords (memory-hard).
+* **MFA:** Email-based 6-digit session validation (Fail-safe console logging supported).
+* **Role-Based Access Control (RBAC):** Admin, Developer, Auditor, Newbie tiers.
 
 ### 2. The Data Plane (Machine Identity)
-* **Credential:** AES-256 Encrypted API Keys.
+* **Credential:** **AES-256-GCM** Encrypted API Keys.
 * **Storage:** Keys are **never** stored in plaintext.
-    * **DB Storage:** `AES-256-CBC(Key)` + `SHA-256(Fingerprint)`.
-* **Transmission:** Base64URL Encoded Bearer Tokens.
-* **Integrity:** HMAC-SHA256 Digital Signatures on all Audit Logs.
+    * **DB Storage:** `AES-256-GCM(Key)` + `SHA-256(Fingerprint)`.
+* **Transmission:** Base64 Encoded Bearer Tokens with `akira_` prefix.
+* **Guardian Eye (NHI Lab):** Real-time machine handshake tracing and protocol verification.
+
+---
+
+## 💎 Premium UI/UX Features
+
+AKIRA features a state-of-the-art "Sentinel" dashboard designed for security professionals:
+* **Aero-Glass Aesthetics**: High-end glassmorphism with `backdrop-blur-2xl` and professional micro-animations.
+* **Fixed-Viewport Layout**: A stable, app-like experience with no vertical page scrolling.
+* **Intelligent Menus**: Role management dropdowns with built-in collision detection (auto-flipping) and scale transitions.
+* **Live Terminal**: Integrated NHI handshake console for real-time security observability.
 
 ---
 
@@ -36,7 +46,7 @@ AKIRA implements a **Hybrid Identity Plane**, strictly separating human administ
 | **Backend** | **Express.js** | Robust REST API framework. |
 | **Database** | **MongoDB Atlas** | Document store for encrypted key blobs and audit trails. |
 | **Frontend** | **React + Vite** | High-performance dashboard with Glassmorphism UI. |
-| **Styling** | **Tailwind CSS + GSAP** | "Sentinel" aesthetic with smooth animations. |
+| **Styling** | **Vanilla CSS + GSAP** | Custom professional scrollbars and smooth animations. |
 | **Crypto** | **Node Crypto + Argon2** | Industry-standard cryptographic libraries. |
 
 ---
@@ -48,102 +58,66 @@ AKIRA implements a **Hybrid Identity Plane**, strictly separating human administ
 * Node.js (v18+)
 * MongoDB Atlas Account
 
-### 1. Backend Setup (The Fortress)
+### 1. Backend Setup
 ```bash
 cd backend
-
-# Install dependencies
 bun install
-
-# Configure Environment
-cp .env.example .env
-# (Edit .env with your MONGO_URI and MASTER_KEY)
-
-# Ignite the Engine
+cp .env.example .env # Configure MONGO_URI, JWT_SECRET, and MASTER_KEY
 bun dev
-
 ```
 
-### 2. Frontend Setup (The Dashboard)
-
+### 2. Frontend Setup
 ```bash
 cd frontend
-
-# Install dependencies
 pnpm install
-
-# Launch UI
 pnpm dev
-
 ```
 
 ---
 
 ## 🔐 Cryptographic Implementation Details
 
-### A. Key Generation (The Birth of an Identity)
-
-When a user requests an API Key:
-
-1. **Entropy:** 32 bytes of random data are generated (`crypto.randomBytes(32)`).
-2. **Encoding:** Converted to Base64URL for transmission (`akira_...`).
+### A. Key Generation
+1. **Entropy:** 32 bytes of random data are generated.
+2. **Encoding:** Converted to Base64 with an `akira_` security prefix.
 3. **Display:** Shown **ONCE** to the user.
 
-### B. Secure Storage (The Vault)
+### B. Secure Vault
+1. **Ciphertext:** Encrypted using **AES-256-GCM** with a hardware-secured `MASTER_KEY`.
+2. **Fingerprint:** A `SHA-256` hash for indexed O(1) lookups during the handshake.
 
-We do not store the key. We store:
-
-1. **Ciphertext:** The key encrypted with `AES-256-CBC` using a server-side `MASTER_KEY`.
-2. **Fingerprint:** A `SHA-256` hash of the key for fast lookups (O(1) indexing) without decryption.
-
-### C. Digital Signatures (The Audit Trail)
-
-Every action (Key Generation, Access Denial) generates an Audit Log entry.
-
-* **Mechanism:** `HMAC-SHA256(LogPayload, SECRET)`
-* **Purpose:** Ensures database administrators cannot tamper with access logs without invalidating the signature.
+### C. Guardian Eye Handshake
+The simulation lab traces the following stages:
+1. **Transport**: Base64 payload decoding.
+2. **Protocol**: Prefix and entropy validation.
+3. **Security**: Fingerprint derivation.
+4. **Identity**: Resolve machine identity from the Hashed Vault.
 
 ---
 
 ## 📡 API Reference
 
-### Human Auth
-
+### Human Auth & Profile
 | Method | Endpoint | Description |
 | --- | --- | --- |
-| `POST` | `/api/auth/register` | Register new admin (Argon2 Hashed) |
-| `POST` | `/api/auth/login` | Authenticate & Issue JWT |
+| `POST` | `/api/auth/login` | Initiate challenge (Issue OTP) |
+| `POST` | `/api/auth/verify-mfa` | Finalize session & Issue JWT |
+| `PUT` | `/api/users/update-profile` | Update identity metadata |
 
-### Machine Management
-
+### Machine Management (NIST Compliant)
 | Method | Endpoint | Description |
 | --- | --- | --- |
 | `POST` | `/api/keys/generate` | Issue new Encrypted API Key |
-| `GET` | `/api/keys` | List active keys (Fingerprints only) |
-
-### Machine Access (Data Plane)
-
-| Method | Endpoint | Description |
-| --- | --- | --- |
-| `GET` | `/api/v1/secret-report` | Access protected data using `Bearer akira_...` |
-
----
-
-## 📸 Screenshots
-
-*(Placeholders for your Lab Report)*
-
-* **Login Screen:** Glassmorphism UI with MFA prompt.
-* **Dashboard:** Active Keys list showing masked credentials.
-* **Terminal:** `curl` request demonstrating successful machine authentication.
+| `GET` | `/api/keys` | List active fingerprints |
+| `POST` | `/api/v1/nhi-validate` | **Guardian Eye** Live Handshake |
 
 ---
 
 ## 📜 License & Academic Integrity
 
-**Course:** 23CSE313 - Foundations of Cyber Security
-**Institution:** Amrita Vishwa Vidyapeetham
-**Developer:** K V L N Kushal [CB.SC.U4CSE23525]
+**Course:** 23CSE313 - Foundations of Cyber Security  
+**Institution:** Amrita Vishwa Vidyapeetham  
+**Developer:** K V L N Kushal [CB.SC.U4CSE23525]  
 
 *This project is built strictly for educational purposes to demonstrate secure identity management principles.*
 

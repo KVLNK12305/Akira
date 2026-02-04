@@ -94,6 +94,14 @@ export default function ProfileView({ onBack }) {
         }
     };
 
+    const handleResetProfile = () => {
+        setUsername(user?.username || "");
+        setProfilePicture(user?.profilePicture || "");
+        setPreviewUrl(null);
+        setSelectedFile(null);
+        setUpdateMsg({ type: "", text: "" });
+    };
+
     const handleRequestOTP = async () => {
         if (!newPassword) return setPassMsg({ type: "error", text: "Enter a new password first" });
         setIsLoading(true);
@@ -133,7 +141,7 @@ export default function ProfileView({ onBack }) {
     };
 
     return (
-        <div className="min-h-screen bg-slate-950 text-slate-200 p-8 font-sans">
+        <div className="min-h-screen bg-slate-950 text-slate-200 p-4 md:p-8 font-sans">
             <div className="max-w-4xl mx-auto">
 
                 {/* Header */}
@@ -261,13 +269,22 @@ export default function ProfileView({ onBack }) {
                                     </div>
                                 )}
 
-                                <button
-                                    type="submit"
-                                    disabled={isUpdating}
-                                    className="bg-emerald-500 hover:bg-emerald-400 text-black font-bold px-6 py-2 rounded-lg text-sm transition-all shadow-[0_0_20px_-5px_rgba(16,185,129,0.4)] disabled:opacity-50 flex items-center gap-2"
-                                >
-                                    {isUpdating ? <Loader2 className="animate-spin" size={16} /> : "Save Changes"}
-                                </button>
+                                <div className="flex gap-3">
+                                    <button
+                                        type="submit"
+                                        disabled={isUpdating}
+                                        className="bg-emerald-500 hover:bg-emerald-400 text-black font-bold px-6 py-2 rounded-lg text-sm transition-all shadow-[0_0_20px_-5px_rgba(16,185,129,0.4)] disabled:opacity-50 flex items-center gap-2"
+                                    >
+                                        {isUpdating ? <Loader2 className="animate-spin" size={16} /> : "Save Changes"}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={handleResetProfile}
+                                        className="bg-slate-800 hover:bg-slate-700 text-white font-bold px-6 py-2 rounded-lg text-sm transition-colors border border-slate-700"
+                                    >
+                                        Reset
+                                    </button>
+                                </div>
                             </form>
                         </div>
 

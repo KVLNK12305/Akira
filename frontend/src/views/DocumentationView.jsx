@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Book, Shield, Code, Terminal, ArrowLeft, Lock, Server, Layers} from "lucide-react";
+import { Book, Shield, Code, Terminal, ArrowLeft, Lock, Server, Layers, AlertTriangle } from "lucide-react";
 
 export function DocumentationView({ onBack, roleLabel }) {
   const [activeSection, setActiveSection] = useState("intro");
@@ -13,11 +13,18 @@ export function DocumentationView({ onBack, roleLabel }) {
   ];
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-300 font-sans selection:bg-emerald-500/30 flex fixed inset-0">
-      
+    <div className="min-h-screen bg-slate-950 text-slate-300 font-sans selection:bg-emerald-500/30 flex flex-col md:flex-row">
+      <div className="md:hidden p-4 bg-slate-900/80 border-b border-white/5 flex items-center justify-between sticky top-0 z-50 backdrop-blur-md">
+        <div className="flex items-center gap-2 font-bold text-white">
+          <Layers className="w-5 h-5 text-emerald-400" />
+          SecureDocs
+        </div>
+        <button onClick={onBack} className="text-xs text-slate-400">Back</button>
+      </div>
+
       {/* 🟢 SIDEBAR */}
-      <aside className="w-64 bg-slate-900/50 border-r border-white/5 flex flex-col backdrop-blur-xl">
-        <div className="p-6 border-b border-white/5">
+      <aside className="w-full md:w-64 bg-slate-900/50 border-r border-white/5 flex flex-col backdrop-blur-xl md:h-screen md:sticky md:top-0">
+        <div className="hidden md:block p-6 border-b border-white/5">
           <div className="flex items-center gap-2 font-bold text-white mb-6">
             <div className="w-8 h-8 bg-emerald-500/10 rounded-lg flex items-center justify-center border border-emerald-500/20">
               <Layers className="w-5 h-5 text-emerald-400" />
@@ -27,7 +34,7 @@ export function DocumentationView({ onBack, roleLabel }) {
               <span className="text-[10px] text-slate-300 bg-slate-800/80 px-2 py-0.5 rounded border border-slate-700/60 uppercase">{roleLabel}</span>
             )}
           </div>
-          <button 
+          <button
             onClick={onBack}
             className="text-xs flex items-center gap-2 text-slate-500 hover:text-white transition-colors"
           >
@@ -40,11 +47,10 @@ export function DocumentationView({ onBack, roleLabel }) {
             <button
               key={item.id}
               onClick={() => setActiveSection(item.id)}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all ${
-                activeSection === item.id 
-                  ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" 
-                  : "hover:bg-white/5 hover:text-white"
-              }`}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all ${activeSection === item.id
+                ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                : "hover:bg-white/5 hover:text-white"
+                }`}
             >
               <item.icon size={16} />
               {item.label}
@@ -56,7 +62,7 @@ export function DocumentationView({ onBack, roleLabel }) {
       {/* 🔵 MAIN CONTENT */}
       <main className="flex-1 overflow-y-auto relative">
         <div className="max-w-4xl mx-auto p-12">
-          
+
           {/* CONTENT: INTRODUCTION */}
           {activeSection === "intro" && (
             <div className="space-y-8 animate-[fade-in_0.5s]">
@@ -67,15 +73,15 @@ export function DocumentationView({ onBack, roleLabel }) {
                 </p>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <InfoCard title="Encryption Standard" value="AES-256-CBC" desc="All keys are encrypted at rest." />
-                <InfoCard title="Hashing Algo" value="Argon2id" desc="NIST-compliant password storage." />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <InfoCard title="Encryption Standard" value="AES-256-GCM" desc="Vault keys are hardware-encrypted at rest." />
+                <InfoCard title="Hashing Algo" value="Argon2id" desc="NIST-compliant user password storage." />
               </div>
 
               <div className="p-6 rounded-2xl bg-blue-500/5 border border-blue-500/10">
-                <h3 className="text-blue-400 font-bold mb-2 flex items-center gap-2"><Lock size={16}/> Security First</h3>
+                <h3 className="text-blue-400 font-bold mb-2 flex items-center gap-2"><Lock size={16} /> Zero Trust Architecture</h3>
                 <p className="text-sm text-slate-400">
-                  This system enforces a strict <strong>Zero Trust</strong> policy. All requests must be authenticated via a signed JWT and authorized against the RBAC matrix before processing.
+                  This system enforces a strict <strong>Zero Trust</strong> policy. Every request—whether from a human user or a machine—must be authenticated via signed JWT or Hashed API Keys.
                 </p>
               </div>
             </div>
@@ -87,19 +93,30 @@ export function DocumentationView({ onBack, roleLabel }) {
               <div>
                 <h2 className="text-3xl font-bold text-white mb-4">Authentication Flow</h2>
                 <p className="text-slate-400 mb-6">
-                  The gateway uses a 2-stage authentication process involving a standard password challenge followed by a Time-Based One-Time Password (TOTP).
+                  Akira supports multi-factor authentication for humans and high-entropy key validation for machines.
                 </p>
               </div>
 
-              <CodeBlock title="Request Headers" lang="http">
-                {`Authorization: Bearer <your_jwt_token>
-X-API-Key: sk_live_8923...`}
-              </CodeBlock>
+              <div className="space-y-6">
+                <div>
+                  <h4 className="text-sm font-bold text-white mb-3 uppercase tracking-widest bg-slate-800/50 w-fit px-3 py-1 rounded">Human Identity (JWT)</h4>
+                  <CodeBlock title="Request Header" lang="http">
+                    {`Authorization: Bearer <your_jwt_session_token>`}
+                  </CodeBlock>
+                </div>
+
+                <div>
+                  <h4 className="text-sm font-bold text-white mb-3 uppercase tracking-widest bg-slate-800/50 w-fit px-3 py-1 rounded">Machine Identity (API Key)</h4>
+                  <CodeBlock title="Request Header" lang="http">
+                    {`Authorization: Bearer akira_<your_generated_key>`}
+                  </CodeBlock>
+                </div>
+              </div>
 
               <div className="space-y-4">
-                <Step number="1" title="Initial Handshake" desc="Client sends credentials securely over TLS 1.3." />
-                <Step number="2" title="MFA Challenge" desc="Server validates hash and requests 6-digit TOTP." />
-                <Step number="3" title="Session Issue" desc="Upon validation, a signed JWT is issued with a 15-minute expiry." />
+                <Step number="1" title="Primary Challenge" desc="Credentials (Email/Pass or Google OAuth) are verified against Argon2 hashes." />
+                <Step number="2" title="Email MFA" desc="A 6-digit security code is dispatched to the registered email address." />
+                <Step number="3" title="Session Issue" desc="Upon OTP validation, a signed JWT is issued for short-term access." />
               </div>
             </div>
           )}
@@ -108,41 +125,81 @@ X-API-Key: sk_live_8923...`}
           {activeSection === "integration" && (
             <div className="space-y-8 animate-[fade-in_0.5s]">
               <div>
-                <h2 className="text-3xl font-bold text-white mb-4">SDK Integration</h2>
+                <h2 className="text-3xl font-bold text-white mb-4">Machine Handshake</h2>
                 <p className="text-slate-400">
-                  Install our lightweight SDK to start protecting your endpoints instantly.
+                  Machines authenticate using high-entropy keys. The gateway never stores raw keys—only SHA-256 fingerprints.
                 </p>
               </div>
 
-              <CodeBlock title="Terminal" lang="bash">
-                {`pnpm install @secure-gateway/sdk`}
-              </CodeBlock>
-
-              <CodeBlock title="server.js" lang="javascript">
-                {`import { Gateway } from '@secure-gateway/sdk';
-
-const security = new Gateway({
-  apiKey: process.env.GATEWAY_KEY,
-  encryption: 'AES-256'
+              <CodeBlock title="Node.js Integration" lang="javascript">
+                {`const response = await fetch('http://localhost:5000/api/v1/secret-report', {
+  headers: {
+    'Authorization': 'Bearer akira_LIVE_KEY_HERE'
+  }
 });
 
-// Protect a route
-app.get('/api/sensitive', security.protect(), (req, res) => {
-  res.json({ data: "Encrypted Payload" });
-});`}
+const data = await response.json();
+console.log(data.identity); // Authenticated as [Machine Name]`}
               </CodeBlock>
+
+              <div className="p-4 bg-emerald-500/5 border border-emerald-500/20 rounded-xl">
+                <p className="text-xs text-emerald-400 font-mono italic">
+                  Tip: Use the "Guardian Eye" lab to live-trace the verification handshake process, including fingerprint matching and scope validation.
+                </p>
+              </div>
             </div>
           )}
 
-           {/* CONTENT: ENDPOINTS */}
-           {activeSection === "endpoints" && (
+          {/* CONTENT: ENDPOINTS */}
+          {activeSection === "endpoints" && (
             <div className="space-y-8 animate-[fade-in_0.5s]">
-              <h2 className="text-3xl font-bold text-white mb-6">Core API Endpoints</h2>
-              
-              <Endpoint method="POST" path="/auth/login" desc="Initiate session and receive MFA challenge." />
-              <Endpoint method="POST" path="/auth/verify" desc="Submit OTP and receive Session Token." />
-              <Endpoint method="GET" path="/keys" desc="List all active API keys (Masked)." />
-              <Endpoint method="POST" path="/keys/generate" desc="Issue a new encrypted API key." />
+              <h2 className="text-3xl font-bold text-white mb-6">System API Reference</h2>
+
+              <div className="space-y-4">
+                <div className="text-xs font-bold text-slate-500 uppercase">Authentication</div>
+                <Endpoint method="POST" path="/api/auth/login" desc="Initiate challenge." />
+                <Endpoint method="POST" path="/api/auth/verify-mfa" desc="Finalize session." />
+
+                <div className="text-xs font-bold text-slate-500 uppercase pt-4">Key Management</div>
+                <Endpoint method="GET" path="/api/keys" desc="List fingerprints." />
+                <Endpoint method="POST" path="/api/keys/generate" desc="Issue new identity." />
+
+                <div className="text-xs font-bold text-slate-500 uppercase pt-4">Internal Services</div>
+                <Endpoint method="POST" path="/api/v1/nhi-validate" desc="Live lab simulation." />
+                <Endpoint method="GET" path="/api/audit-logs" desc="Security event stream." />
+              </div>
+            </div>
+          )}
+
+          {/* CONTENT: ERROR CODES */}
+          {activeSection === "errors" && (
+            <div className="space-y-8 animate-[fade-in_0.5s]">
+              <h2 className="text-3xl font-bold text-white mb-6">Security Exceptions</h2>
+              <p className="text-slate-400">Common status codes returned by the Akira Secure Gateway.</p>
+
+              <div className="space-y-4">
+                <div className="p-4 rounded-lg bg-red-500/5 border border-red-500/10 flex items-center gap-4">
+                  <span className="font-mono text-sm font-bold text-red-400 w-20">401</span>
+                  <div>
+                    <p className="text-white font-bold text-sm">INVALID_CREDENTIALS</p>
+                    <p className="text-xs text-slate-500">Bearer token expired or API Key fingerprint mismatch.</p>
+                  </div>
+                </div>
+                <div className="p-4 rounded-lg bg-red-500/5 border border-red-500/10 flex items-center gap-4">
+                  <span className="font-mono text-sm font-bold text-red-400 w-20">403</span>
+                  <div>
+                    <p className="text-white font-bold text-sm">ACCESS_DENIED</p>
+                    <p className="text-xs text-slate-500">Identity exists but lacks sufficient RBAC privileges.</p>
+                  </div>
+                </div>
+                <div className="p-4 rounded-lg bg-orange-500/5 border border-orange-500/10 flex items-center gap-4">
+                  <span className="font-mono text-sm font-bold text-orange-400 w-20">404</span>
+                  <div>
+                    <p className="text-white font-bold text-sm">NOT_FOUND</p>
+                    <p className="text-xs text-slate-500">Resource or referenced identity does not exist.</p>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
 
@@ -204,5 +261,3 @@ function Endpoint({ method, path, desc }) {
     </div>
   )
 }
-
-import { AlertTriangle } from "lucide-react";
