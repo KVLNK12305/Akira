@@ -3,8 +3,11 @@ import {
   Shield, Key, FileText, Lock, Users, Activity,
   CheckCircle, XCircle, LogOut, Fingerprint, AlertTriangle,
   Cpu, Thermometer, ChevronDown, Save, Bell, Trash2, Book,
-  RefreshCw, Eye, Terminal, ArrowRight, Menu, X, Download
+  RefreshCw, Eye, Terminal, ArrowRight, Menu, X, Download,
+  FileJson, FileCode, FileBarChart
 } from "lucide-react";
+import { jsPDF } from "jspdf";
+import autoTable from "jspdf-autotable";
 import api, { API_URL } from "../api/axios";
 import { DocumentationView } from "./DocumentationView";
 
@@ -58,6 +61,12 @@ export function DashboardView({ user, keys, logs, onGenerateKey, onLogout, onDel
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [logSearch, setLogSearch] = useState("");
 
+  // 📁 EXPORT MODAL STATE
+  const [exportModal, setExportModal] = useState({
+    isOpen: false,
+    loading: false
+  });
+
   // 🛡️ CUSTOM MODAL STATE
   const [confirmModal, setConfirmModal] = useState({
     isOpen: false,
@@ -86,8 +95,8 @@ export function DashboardView({ user, keys, logs, onGenerateKey, onLogout, onDel
   // "Strict Admin" = Can manage Users (Admins only)
   const isStrictAdmin = ['admin', 'superadmin'].includes(currentRole);
 
-  // "Can Export" = Can download logs (Admin, Auditor)
-  const canExportLogs = ['admin', 'superadmin', 'auditor'].includes(currentRole);
+  // "Can Export" = Now all users can export their own logs
+  const canExportLogs = !!user;
 
   // ----------------------------------------
   // 3. EFFECTS (Live Updates)
@@ -178,26 +187,103 @@ export function DashboardView({ user, keys, logs, onGenerateKey, onLogout, onDel
     }
   };
 
-  const handleExportLogs = async () => {
+  const handleExportLogs = () => {
+    setExportModal({ isOpen: true, loading: false });
+  };
+
+  const handleExecuteExport = async (format) => {
+    setExportModal(prev => ({ ...prev, loading: true }));
     try {
-      const res = await api.get('/audit-logs/export');
-      const dataStr = JSON.stringify(res.data, null, 2);
-      const dataUri = 'data:application/json;charset=utf-8,' + encodeURIComponent(dataStr);
+      const res = await api.get(`/audit-logs/export?format=${format}`);
+      const data = res.data;
+      const timestamp = new Date().toISOString().split('T')[0];
+      const filename = `akira_audit_${timestamp}`;
 
-      const exportFileDefaultName = `akira_audit_export_${new Date().toISOString().split('T')[0]}.json`;
+      if (format === 'json') {
+        const dataStr = JSON.stringify(data, null, 2);
+        const dataUri = 'data:application/json;charset=utf-8,' + encodeURIComponent(dataStr);
+        downloadFile(dataUri, `${filename}.json`);
+      }
+      else if (format === 'base64') {
+        const dataStr = JSON.stringify(data);
+        const encoded = btoa(unescape(encodeURIComponent(dataStr)));
+        const dataUri = 'data:text/plain;charset=utf-8,' + encodeURIComponent(encoded);
+        downloadFile(dataUri, `${filename}.txt`);
+      }
+      else if (format === 'pdf') {
+        const doc = new jsPDF();
 
-      const linkElement = document.createElement('a');
-      linkElement.setAttribute('href', dataUri);
-      linkElement.setAttribute('download', exportFileDefaultName);
-      linkElement.click();
+        // 1. Header
+        doc.setFontSize(22);
+        doc.setTextColor(16, 185, 129); // Emerald-500
+        doc.text("AKIRA SECURE GATEWAY", 14, 22);
 
-      // Refresh logs to show the export event
-      onRefreshKeys(); // This might work if it refreshes the whole state, or if we had onRefreshLogs
-      notify("Audit Logs Exported Successfully!", "success");
+        doc.setFontSize(10);
+        doc.setTextColor(100, 116, 139); // Slate-500
+        doc.text(`FORENSIC AUDIT REPORT • ${new Date().toLocaleString()}`, 14, 30);
+
+        // 2. Metadata Table
+        const metadata = [
+          ["Exported By", data.exportedBy.username],
+          ["Role", data.exportedBy.role],
+          ["System", data.system],
+          ["Log Count", data.logCount.toString()],
+          ["Integrity Signature", data.integritySignature.substring(0, 32) + "..."]
+        ];
+
+        autoTable(doc, {
+          startY: 40,
+          head: [["Attribute", "Value"]],
+          body: metadata,
+          theme: 'grid',
+          headStyles: { fillColor: [30, 41, 59] },
+          styles: { fontSize: 9, font: 'courier' }
+        });
+
+        // 3. Logs Table
+        const tableBody = data.logs.map(log => [
+          new Date(log.timestamp).toLocaleString(),
+          log.action,
+          log.actor?.username || "System",
+          JSON.stringify(log.details).substring(0, 50) + "..."
+        ]);
+
+        autoTable(doc, {
+          startY: doc.lastAutoTable.finalY + 15,
+          head: [["Timestamp", "Action", "Actor", "Details Summary"]],
+          body: tableBody,
+          theme: 'striped',
+          headStyles: { fillColor: [16, 185, 129] },
+          styles: { fontSize: 8 }
+        });
+
+        // 4. Footer
+        const pageCount = doc.internal.getNumberOfPages();
+        for (let i = 1; i <= pageCount; i++) {
+          doc.setPage(i);
+          doc.setFontSize(8);
+          doc.text(`Page ${i} of ${pageCount}`, doc.internal.pageSize.width - 30, doc.internal.pageSize.height - 10);
+          doc.text(`Signature Hash: ${data.integritySignature}`, 14, doc.internal.pageSize.height - 10);
+        }
+
+        doc.save(`${filename}.pdf`);
+      }
+
+      setExportModal({ isOpen: false, loading: false });
+      notify("Export Successful!", "success");
+      if (onRefreshKeys) onRefreshKeys();
     } catch (err) {
       console.error("Export failed:", err);
       notify("Export Failed: " + (err.response?.data?.error || err.message), "error");
+      setExportModal({ isOpen: false, loading: false });
     }
+  };
+
+  const downloadFile = (uri, name) => {
+    const link = document.createElement('a');
+    link.href = uri;
+    link.download = name;
+    link.click();
   };
 
   const handleDeleteKey = async (keyId, keyName) => {
@@ -833,6 +919,11 @@ export function DashboardView({ user, keys, logs, onGenerateKey, onLogout, onDel
         {...confirmModal}
         onCancel={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
       />
+      <ExportOptionsModal
+        {...exportModal}
+        onCancel={() => setExportModal(prev => ({ ...prev, isOpen: false }))}
+        onExport={handleExecuteExport}
+      />
       {notification && <Toast {...notification} />}
     </div>
   );
@@ -1046,6 +1137,96 @@ function Toast({ msg, type }) {
     <div className={`fixed bottom-8 right-8 z-[10001] flex items-center gap-3 px-6 py-4 rounded-2xl border backdrop-blur-xl shadow-2xl animate-[slide-in-right_0.3s] ${type === 'error' ? 'bg-red-900/20 border-red-500/30 text-red-400' : 'bg-emerald-900/20 border-emerald-500/30 text-emerald-400'}`}>
       {type === 'error' ? <XCircle size={20} /> : <CheckCircle size={20} />}
       <span className="font-bold text-sm tracking-tight">{msg}</span>
+    </div>
+  );
+}
+
+// 6. Export Options Modal
+function ExportOptionsModal({ isOpen, loading, onCancel, onExport }) {
+  if (!isOpen) return null;
+
+  const options = [
+    {
+      id: 'json',
+      name: 'Standard JSON',
+      desc: 'Raw machine-readable logs with digital signatures.',
+      icon: FileJson,
+      color: 'text-blue-400',
+      bg: 'bg-blue-500/10'
+    },
+    {
+      id: 'base64',
+      name: 'Base64 Sealed',
+      desc: 'Obfuscated encoding for secure transmission.',
+      icon: FileCode,
+      color: 'text-orange-400',
+      bg: 'bg-orange-500/10'
+    },
+    {
+      id: 'pdf',
+      name: 'Forensic PDF',
+      desc: 'Formatted report for human audit and printing.',
+      icon: FileBarChart,
+      color: 'text-emerald-400',
+      bg: 'bg-emerald-500/10'
+    }
+  ];
+
+  return (
+    <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4">
+      <div
+        className="absolute inset-0 bg-slate-950/90 backdrop-blur-md animate-[fade-in_0.2s]"
+        onClick={onCancel}
+      ></div>
+      <div className="relative w-full max-w-lg bg-slate-900 border border-white/10 rounded-[32px] p-8 shadow-[0_30px_60px_rgba(0,0,0,0.8)] animate-[scale-in_0.2s] overflow-hidden">
+        {/* Decorative background grid */}
+        <div className="absolute inset-0 opacity-20 pointer-events-none bg-[linear-gradient(rgba(255,255,255,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.05)_1px,transparent_1px)] bg-[size:40px_40px]"></div>
+
+        <div className="relative z-10">
+          <div className="flex justify-between items-center mb-6">
+            <div>
+              <h3 className="text-2xl font-bold text-white tracking-tight">Export <span className="text-emerald-400">Audit Logs</span></h3>
+              <p className="text-slate-400 text-sm">Select your preferred forensic format</p>
+            </div>
+            <button onClick={onCancel} className="p-2 hover:bg-white/10 rounded-full transition-colors text-slate-400 hover:text-white">
+              <X size={20} />
+            </button>
+          </div>
+
+          <div className="space-y-3 mb-8">
+            {options.map((opt) => (
+              <button
+                key={opt.id}
+                onClick={() => !loading && onExport(opt.id)}
+                disabled={loading}
+                className="w-full group flex items-center gap-4 p-4 rounded-2xl bg-white/[0.03] border border-white/5 hover:bg-white/[0.08] hover:border-white/10 transition-all text-left disabled:opacity-50"
+              >
+                <div className={`w-12 h-12 rounded-xl ${opt.bg} flex items-center justify-center border border-white/5 group-hover:scale-110 transition-transform`}>
+                  <opt.icon className={opt.color} size={24} />
+                </div>
+                <div className="flex-1">
+                  <h4 className="font-bold text-white">{opt.name}</h4>
+                  <p className="text-xs text-slate-500 leading-tight">{opt.desc}</p>
+                </div>
+                <div className="opacity-0 group-hover:opacity-100 transition-opacity translate-x-4 group-hover:translate-x-0">
+                  <ArrowRight size={18} className="text-emerald-500" />
+                </div>
+              </button>
+            ))}
+          </div>
+
+          {loading && (
+            <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm z-20 flex flex-col items-center justify-center">
+              <div className="w-12 h-12 border-4 border-emerald-500/20 border-t-emerald-500 rounded-full animate-spin mb-4"></div>
+              <p className="text-emerald-400 font-mono text-xs animate-pulse">GENERATING SECURE REPORT...</p>
+            </div>
+          )}
+
+          <p className="text-[10px] text-center text-slate-600 uppercase font-mono tracking-widest">
+            🛡️ All exports are cryptographically signed by AKIRA-CORE
+          </p>
+        </div>
+      </div>
     </div>
   );
 }
