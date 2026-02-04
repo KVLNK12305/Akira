@@ -3,7 +3,7 @@ import {
   Shield, Key, FileText, Lock, Users, Activity,
   CheckCircle, XCircle, LogOut, Fingerprint, AlertTriangle,
   Cpu, Thermometer, ChevronDown, Save, Bell, Trash2, Book,
-  RefreshCw // 🟢 NEW ICON FOR ROTATION
+  RefreshCw, Eye, Terminal, ArrowRight // 🟢 NEW ICONS
 } from "lucide-react";
 import api, { API_URL } from "../api/axios";
 import { DocumentationView } from "./DocumentationView";
@@ -37,6 +37,13 @@ export function DashboardView({ user, keys, logs, onGenerateKey, onLogout, onDel
     cpu: 12,
     temp: 45
   });
+
+  // 👁️ NHI LAB STATE
+  const [nhiInput, setNhiInput] = useState("");
+  const [nhiIsBase64, setNhiIsBase64] = useState(false);
+  const [nhiSteps, setNhiSteps] = useState([]);
+  const [nhiStatus, setNhiStatus] = useState("idle"); // idle, validating, success, error
+  const [nhiResult, setNhiResult] = useState(null);
 
   // ----------------------------------------
   // 2. SECURITY & RBAC LOGIC
@@ -157,6 +164,51 @@ export function DashboardView({ user, keys, logs, onGenerateKey, onLogout, onDel
     }
   };
 
+  const handleNhiValidate = async () => {
+    if (!nhiInput) return;
+    setNhiStatus("validating");
+    setNhiSteps([]);
+    setNhiResult(null);
+
+    try {
+      // Simulation: Encode if requested before sending
+      let payload = nhiInput;
+      if (nhiIsBase64) {
+        // Simple btoa for simulation (only works for ASCII, perfect for keys)
+        try {
+          payload = btoa(nhiInput);
+        } catch (e) {
+          console.error("Base64 Encoding Error", e);
+        }
+      }
+
+      const res = await api.post('/v1/nhi-validate', { key: payload, isBase64: nhiIsBase64 });
+
+      // Animate steps for "Live" feel
+      for (const step of res.data.steps) {
+        setNhiSteps(prev => [...prev, step]);
+        await new Promise(r => setTimeout(r, 600));
+      }
+
+      if (res.data.success) {
+        setNhiStatus("success");
+        setNhiResult(res.data.identity);
+      }
+    } catch (err) {
+      console.error("NHI Validation Failed:", err);
+      // Even in error, show the steps returned (if any)
+      if (err.response?.data?.steps) {
+        for (const step of err.response.data.steps) {
+          if (nhiSteps.some(s => s.msg === step.msg)) continue; // Avoid dupes if already added
+          setNhiSteps(prev => [...prev, step].filter((v, i, a) => a.findIndex(t => (t.msg === v.msg)) === i));
+          await new Promise(r => setTimeout(r, 600));
+        }
+      }
+      setNhiStatus("error");
+      setNhiResult({ error: err.response?.data?.error || "Connection Error" });
+    }
+  };
+
 
   // ----------------------------------------
   // 5. RENDER
@@ -208,6 +260,13 @@ export function DashboardView({ user, keys, logs, onGenerateKey, onLogout, onDel
             active={activeTab === 'docs'}
             onClick={() => setActiveTab('docs')}
           />
+
+          <NavButton
+            icon={Eye}
+            label="Guardian Eye (NHI Lab)"
+            active={activeTab === 'nhi'}
+            onClick={() => setActiveTab('nhi')}
+          />
         </nav>
         {/* User Profile Footer (Clickable) */}
         <div
@@ -254,6 +313,7 @@ export function DashboardView({ user, keys, logs, onGenerateKey, onLogout, onDel
               {activeTab === 'logs' && "Security Events"}
               {activeTab === 'matrix' && "Identity & Access Control"}
               {activeTab === 'docs' && "Documentation"}
+              {activeTab === 'nhi' && "Guardian Eye: Machine Auth"}
             </h2>
             <p className="text-slate-400 text-sm">
               Session ID: <span className="font-mono text-emerald-400">{user?._id?.substring(0, 8) || user?.id?.substring(0, 8) || "SESSION-ACTIVE"}</span>
@@ -500,6 +560,137 @@ export function DashboardView({ user, keys, logs, onGenerateKey, onLogout, onDel
                   </table>
                 </div>
               )}
+            </div>
+          )}
+
+          {/* --- TAB 4: GUARDIAN EYE (NHI LAB) --- */}
+          {activeTab === 'nhi' && (
+            <div className="space-y-6 animate-[fade-in_0.3s]">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+
+                {/* Protocol Simulation Controls */}
+                <div className="space-y-4">
+                  <div className="bg-slate-900/50 border border-slate-800 p-6 rounded-2xl backdrop-blur-md">
+                    <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                      <Terminal size={18} className="text-emerald-400" /> Key Transmission
+                    </h3>
+                    <div className="space-y-4">
+                      <div>
+                        <label className="text-[10px] text-slate-500 font-bold uppercase tracking-widest block mb-2">Input generated key (akira_...)</label>
+                        <input
+                          type="text"
+                          value={nhiInput}
+                          onChange={(e) => setNhiInput(e.target.value)}
+                          placeholder="Paste a key from the vault..."
+                          className="w-full bg-black/50 border border-slate-700 rounded-lg px-4 py-3 text-sm font-mono text-white focus:outline-none focus:border-emerald-500 transition-colors"
+                        />
+                      </div>
+
+                      <div className="flex items-center justify-between p-3 bg-black/30 border border-slate-800 rounded-lg">
+                        <div className="flex items-center gap-3">
+                          <div className={`w-10 h-6 rounded-full p-1 cursor-pointer transition-colors ${nhiIsBase64 ? 'bg-emerald-500' : 'bg-slate-700'}`} onClick={() => setNhiIsBase64(!nhiIsBase64)}>
+                            <div className={`w-4 h-4 bg-white rounded-full transition-transform ${nhiIsBase64 ? 'translate-x-4' : ''}`}></div>
+                          </div>
+                          <span className="text-xs font-bold text-slate-300">Simulate Base64 Encoding</span>
+                        </div>
+                        <span className="text-[10px] text-slate-500 italic">Pre-transmission layer</span>
+                      </div>
+
+                      <button
+                        onClick={handleNhiValidate}
+                        disabled={!nhiInput || nhiStatus === 'validating'}
+                        className="w-full py-3 bg-emerald-500 hover:bg-emerald-400 text-black font-bold rounded-lg transition-all shadow-[0_0_20px_-5px_rgba(16,185,129,0.4)] disabled:opacity-50 flex items-center justify-center gap-2"
+                      >
+                        {nhiStatus === 'validating' ? <Activity className="animate-spin" size={18} /> : <Eye size={18} />}
+                        INITIATE HANDSHAKE
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Identity Breakdown Card (Hidden until Success) */}
+                  {nhiStatus === 'success' && nhiResult && (
+                    <div className="bg-emerald-500/10 border border-emerald-500/20 p-6 rounded-2xl animate-[slide-up_0.3s]">
+                      <div className="flex items-start justify-between mb-4">
+                        <div>
+                          <h4 className="text-emerald-400 font-bold text-sm">Identity Resolved</h4>
+                          <p className="text-2xl font-black text-white">{nhiResult.name}</p>
+                        </div>
+                        <div className="p-2 bg-emerald-500/20 rounded-lg">
+                          <Shield size={24} className="text-emerald-400" />
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <div className="flex justify-between text-xs">
+                          <span className="text-slate-500">ID:</span>
+                          <span className="font-mono text-slate-300">{nhiResult.id}</span>
+                        </div>
+                        <div className="flex justify-between text-xs">
+                          <span className="text-slate-500">Scopes:</span>
+                          <div className="flex gap-1">
+                            {nhiResult.scopes.map(s => <span key={s} className="bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20 text-[10px] uppercase font-bold text-emerald-300">{s}</span>)}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Error Card */}
+                  {nhiStatus === 'error' && (
+                    <div className="bg-red-500/10 border border-red-500/20 p-6 rounded-2xl animate-[shake_0.4s]">
+                      <h4 className="text-red-400 font-bold text-sm flex items-center gap-2 mb-2">
+                        <AlertTriangle size={16} /> Handshake Failed
+                      </h4>
+                      <p className="text-sm text-slate-300 font-mono italic">
+                        {nhiResult?.error}
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Validation Console (Terminal Output) */}
+                <div className="bg-black border border-slate-800 rounded-2xl overflow-hidden shadow-2xl flex flex-col min-h-[400px]">
+                  <div className="p-3 bg-slate-900/80 border-b border-slate-800 flex items-center gap-2">
+                    <div className="flex gap-1.5">
+                      <div className="w-2.5 h-2.5 rounded-full bg-red-500/50"></div>
+                      <div className="w-2.5 h-2.5 rounded-full bg-yellow-500/50"></div>
+                      <div className="w-2.5 h-2.5 rounded-full bg-emerald-500/50"></div>
+                    </div>
+                    <span className="text-[10px] font-mono text-slate-500 ml-2">AKIRA GATE v2.0 - MACHINE AUTH LOGS</span>
+                  </div>
+                  <div className="flex-1 p-6 font-mono text-xs overflow-y-auto space-y-3 bg-[radial-gradient(circle_at_top_right,_rgba(16,185,129,0.05),_transparent)]">
+                    {nhiSteps.length === 0 && (
+                      <div className="h-full flex flex-col items-center justify-center text-center opacity-20 group">
+                        <Eye size={48} className="mb-4 group-hover:scale-110 transition-transform" />
+                        <p>Awaiting Machine ID Broadcast...</p>
+                      </div>
+                    )}
+
+                    {nhiSteps.map((step, idx) => (
+                      <div key={idx} className={`animate-[fade-in_0.3s] flex gap-4 ${step.stage === 'DENIED' ? 'text-red-400' : 'text-slate-400'}`}>
+                        <span className={`w-20 font-bold ${step.stage === 'SUCCESS' ? 'text-emerald-400' :
+                            step.stage === 'DENIED' ? 'text-red-400' :
+                              'text-slate-500'
+                          }`}>[{step.stage}]</span>
+                        <span className="flex-1">{step.msg}</span>
+                        {idx === nhiSteps.length - 1 && nhiStatus === 'validating' && <Activity size={12} className="animate-spin text-emerald-500" />}
+                      </div>
+                    ))}
+
+                    {nhiStatus === 'success' && (
+                      <div className="mt-6 pt-4 border-t border-emerald-500/20 text-emerald-400 animate-pulse">
+                        &gt; HANDSHAKE COMPLETE. ACCESS GRANTED TO NODE: {nhiResult?.name}
+                      </div>
+                    )}
+
+                    {nhiStatus === 'error' && (
+                      <div className="mt-6 pt-4 border-t border-red-500/20 text-red-400">
+                        &gt; PROTOCOL ERROR. CONNECTION TERMINATED.
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+              </div>
             </div>
           )}
 
