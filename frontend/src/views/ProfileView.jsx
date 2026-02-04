@@ -1,13 +1,13 @@
 import { useState, useRef } from "react";
 import {
     User, Camera, Key, Mail, Shield, ArrowLeft,
-    Check, Loader2, AlertTriangle, Eye, EyeOff, Upload
+    Check, Loader2, AlertTriangle, Eye, EyeOff, Upload, LogOut
 } from "lucide-react";
 import api, { API_URL } from "../api/axios";
 import { useAuth } from "../context/AuthContext";
 
 export default function ProfileView({ onBack }) {
-    const { user, updateUser } = useAuth();
+    const { user, updateUser, logout } = useAuth();
     const fileInputRef = useRef(null);
 
     // Profile Update State
@@ -226,6 +226,15 @@ export default function ProfileView({ onBack }) {
                                 <span className="text-slate-400">{new Date(user?.createdAt).toLocaleDateString()}</span>
                             </div>
                         </div>
+                        <button
+                            onClick={() => {
+                                if (window.confirm("Are you sure you want to sign out?")) logout();
+                            }}
+                            className="w-full mt-4 flex items-center justify-center gap-2 px-6 py-3 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 rounded-xl font-bold transition-all group"
+                        >
+                            <LogOut size={18} className="group-hover:-translate-x-1 transition-transform" />
+                            SIGN OUT OF AKIRA
+                        </button>
                     </div>
 
                     {/* Right Column: Editing & Security */}

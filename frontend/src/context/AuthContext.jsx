@@ -48,10 +48,11 @@ export const AuthProvider = ({ children }) => {
   // 2. STANDARD LOGIN (Triggers OTP)
   const login = async (email, password) => {
     try {
-      const res = await api.post('/auth/login', { email, password });
+      const normalizedEmail = email.toLowerCase();
+      const res = await api.post('/auth/login', { email: normalizedEmail, password });
 
       if (res.data.success) {
-        setTempEmail(email); // Save email for MFA step
+        setTempEmail(normalizedEmail); // Save email for MFA step
         return { success: true, requireMfa: true };
       }
     } catch (error) {
@@ -63,11 +64,12 @@ export const AuthProvider = ({ children }) => {
   // 3. ⚡ SMART GOOGLE LOGIN
   const googleLogin = async (googleEmail) => {
     try {
-      console.log(`🔍 Google Request for: ${googleEmail}`);
-      const res = await api.post('/auth/google', { email: googleEmail });
+      const normalizedEmail = googleEmail.toLowerCase();
+      console.log(`🔍 Google Request for: ${normalizedEmail}`);
+      const res = await api.post('/auth/google', { email: normalizedEmail });
 
       if (res.data.success) {
-        setTempEmail(googleEmail);
+        setTempEmail(normalizedEmail);
         return { success: true, requireMfa: true };
       }
     } catch (error) {

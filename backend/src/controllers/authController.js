@@ -1,7 +1,7 @@
 import User from '../models/User.js';
 import argon2 from 'argon2';
 import jwt from 'jsonwebtoken';
-import nodemailer from 'nodemailer'; 
+import nodemailer from 'nodemailer';
 
 // Setup Email Transporter
 // 1. Using Port 587 (TLS) is less likely to be blocked than 465
@@ -16,7 +16,7 @@ const transporter = nodemailer.createTransport({
 });
 
 // Store OTPs in memory
-export const otpStore = {}; 
+export const otpStore = {};
 
 // 1. REGISTER
 export const register = async (req, res) => {
@@ -40,7 +40,8 @@ export const register = async (req, res) => {
 // 2. LOGIN (With Fail-Safe)
 export const login = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email: rawEmail, password } = req.body;
+    const email = rawEmail.toLowerCase();
     const user = await User.findOne({ email });
     if (!user) return res.status(404).json({ error: 'Account not found. Please register.' });
 
@@ -70,10 +71,10 @@ export const login = async (req, res) => {
     }
 
     // Always return success so the frontend moves to MFA screen
-    res.json({ 
-      success: true, 
-      message: 'OTP generated', 
-      tempUser: { username: user.username, email: user.email, role: user.role } 
+    res.json({
+      success: true,
+      message: 'OTP generated',
+      tempUser: { username: user.username, email: user.email, role: user.role }
     });
 
   } catch (error) {
@@ -85,14 +86,17 @@ export const login = async (req, res) => {
 // 3. VERIFY MFA
 export const verifyMFA = async (req, res) => {
   try {
-    const { email, otp } = req.body;
-    
+    const { email: rawEmail, otp } = req.body;
+    const email = rawEmail.toLowerCase();
+
     // Debug Log
     console.log(`🔍 Verifying: ${email} with Code: ${otp}`);
     console.log(`   Stored Code: ${otpStore[email]}`);
 
     if (otpStore[email] && otpStore[email] === otp) {
       const user = await User.findOne({ email });
+      if (!user) return res.status(404).json({ error: 'User not found' });
+
       const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '1h' });
       delete otpStore[email];
       res.json({ success: true, token, user: { username: user.username, role: user.role } });
@@ -108,8 +112,9 @@ export const verifyMFA = async (req, res) => {
 // 4. 🚀 GOOGLE ACCESS (The Fix for Existing Users)
 export const googleAccess = async (req, res) => {
   try {
-    const { email } = req.body; // We trust this email from Google
-    
+    const { email: rawEmail } = req.body; // We trust this email from Google
+    const email = rawEmail.toLowerCase();
+
     // A. Check if user exists
     let user = await User.findOne({ email });
 
@@ -117,13 +122,13 @@ export const googleAccess = async (req, res) => {
     if (!user) {
       const username = email.split('@')[0];
       // We set a random password because they will login via Google anyway
-      const randomPass = await argon2.hash(Math.random().toString(36)); 
-      
-      user = new User({ 
-        username, 
-        email, 
-        passwordHash: randomPass, 
-        role: 'Developer' 
+      const randomPass = await argon2.hash(Math.random().toString(36));
+
+      user = new User({
+        username,
+        email,
+        passwordHash: randomPass,
+        role: 'Developer'
       });
       await user.save();
       console.log(`🆕 New Google User Created: ${email}`);
@@ -153,10 +158,10 @@ export const googleAccess = async (req, res) => {
     }
 
     // E. Return Success
-    res.json({ 
-      success: true, 
-      message: 'OTP sent', 
-      tempUser: { username: user.username, email: user.email, role: user.role } 
+    res.json({
+      success: true,
+      message: 'OTP sent',
+      tempUser: { username: user.username, email: user.email, role: user.role }
     });
 
   } catch (error) {
@@ -171,7 +176,7 @@ export const getMe = async (req, res) => {
     // req.user is set by the verifyToken middleware
     const user = await User.findById(req.user.id).select('-passwordHash');
     if (!user) return res.status(404).json({ success: false, error: 'User not found' });
-    
+
     res.json({ success: true, user });
   } catch (error) {
     res.status(500).json({ success: false, error: 'Server Error' });

@@ -9,7 +9,7 @@ export const verifyToken = async (req, res, next) => {
     try {
       token = req.headers.authorization.split(' ')[1];
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      
+
       req.user = await User.findById(decoded.id).select('-passwordHash');
 
       if (!req.user) {
@@ -36,5 +36,24 @@ export const isAdmin = (req, res, next) => {
     next();
   } else {
     res.status(403).json({ error: 'Access Denied: Admin privileges required' });
+  }
+};
+
+// 4. Auditor Check
+export const isAuditor = (req, res, next) => {
+  if (req.user && req.user.role && req.user.role.toLowerCase() === 'auditor') {
+    next();
+  } else {
+    res.status(403).json({ error: 'Access Denied: Auditor privileges required' });
+  }
+};
+
+// 5. Auditor or Admin Check
+export const isAuditorOrAdmin = (req, res, next) => {
+  const role = req.user?.role?.toLowerCase();
+  if (role === 'admin' || role === 'auditor') {
+    next();
+  } else {
+    res.status(403).json({ error: 'Access Denied: Auditor or Admin privileges required' });
   }
 };

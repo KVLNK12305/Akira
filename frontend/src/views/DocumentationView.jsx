@@ -167,6 +167,7 @@ console.log(data.identity); // Authenticated as [Machine Name]`}
                 <div className="text-xs font-bold text-slate-500 uppercase pt-4">Internal Services</div>
                 <Endpoint method="POST" path="/api/v1/nhi-validate" desc="Live lab simulation." />
                 <Endpoint method="GET" path="/api/audit-logs" desc="Security event stream." />
+                <Endpoint method="GET" path="/api/audit-logs/export" desc="Signed JSON report." />
               </div>
             </div>
           )}

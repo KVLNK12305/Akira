@@ -3,7 +3,7 @@ import {
   Shield, Key, FileText, Lock, Users, Activity,
   CheckCircle, XCircle, LogOut, Fingerprint, AlertTriangle,
   Cpu, Thermometer, ChevronDown, Save, Bell, Trash2, Book,
-  RefreshCw, Eye, Terminal, ArrowRight, Menu, X
+  RefreshCw, Eye, Terminal, ArrowRight, Menu, X, Download
 } from "lucide-react";
 import api, { API_URL } from "../api/axios";
 import { DocumentationView } from "./DocumentationView";
@@ -13,7 +13,17 @@ import { DocumentationView } from "./DocumentationView";
 // Format Timestamps
 const formatDate = (dateStr) => {
   if (!dateStr) return "Just now";
-  return new Date(dateStr).toLocaleTimeString();
+  const date = new Date(dateStr);
+
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const year = date.getFullYear();
+
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  const seconds = String(date.getSeconds()).padStart(2, '0');
+
+  return `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`;
 };
 
 // --- MAIN COMPONENT ---
@@ -58,6 +68,9 @@ export function DashboardView({ user, keys, logs, onGenerateKey, onLogout, onDel
 
   // "Strict Admin" = Can manage Users (Admins only)
   const isStrictAdmin = ['admin', 'superadmin'].includes(currentRole);
+
+  // "Can Export" = Can download logs (Admin, Auditor)
+  const canExportLogs = ['admin', 'superadmin', 'auditor'].includes(currentRole);
 
   // ----------------------------------------
   // 3. EFFECTS (Live Updates)
@@ -148,6 +161,28 @@ export function DashboardView({ user, keys, logs, onGenerateKey, onLogout, onDel
     } catch (err) {
       alert("Failed to update role: " + (err.response?.data?.error || "Server Error"));
       fetchUsers(); // Revert UI if failed
+    }
+  };
+
+  const handleExportLogs = async () => {
+    try {
+      const res = await api.get('/audit-logs/export');
+      const dataStr = JSON.stringify(res.data, null, 2);
+      const dataUri = 'data:application/json;charset=utf-8,' + encodeURIComponent(dataStr);
+
+      const exportFileDefaultName = `akira_audit_export_${new Date().toISOString().split('T')[0]}.json`;
+
+      const linkElement = document.createElement('a');
+      linkElement.setAttribute('href', dataUri);
+      linkElement.setAttribute('download', exportFileDefaultName);
+      linkElement.click();
+
+      // Refresh logs to show the export event
+      onRefreshKeys(); // This might work if it refreshes the whole state, or if we had onRefreshLogs
+      alert("✅ Audit Logs Exported and Signed Successfully!");
+    } catch (err) {
+      console.error("Export failed:", err);
+      alert("❌ Export Failed: " + (err.response?.data?.error || err.message));
     }
   };
 
@@ -308,6 +343,17 @@ export function DashboardView({ user, keys, logs, onGenerateKey, onLogout, onDel
             <span>Click to view profile</span>
             <ChevronDown size={10} />
           </div>
+        </div>
+        <div className="p-4 border-t border-white/5 space-y-1">
+          <button
+            onClick={() => {
+              if (window.confirm("Are you sure you want to sign out?")) onLogout();
+            }}
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-red-400 hover:bg-red-500/10 transition-all group"
+          >
+            <LogOut size={18} className="group-hover:-translate-x-1 transition-transform" />
+            Sign Out
+          </button>
         </div>
       </aside>
 
@@ -505,8 +551,18 @@ export function DashboardView({ user, keys, logs, onGenerateKey, onLogout, onDel
                     </button>
                   )}
                 </div>
-                <div className="text-[10px] text-slate-500 font-mono uppercase">
-                  MATCHES: {logs.filter(l => (l.action + l.desc).toLowerCase().includes(logSearch.toLowerCase())).length}
+                <div className="text-[10px] text-slate-500 font-mono uppercase flex items-center gap-4">
+                  <span>MATCHES: {logs.filter(l => (l.action + l.desc).toLowerCase().includes(logSearch.toLowerCase())).length}</span>
+
+                  {canExportLogs && (
+                    <button
+                      onClick={handleExportLogs}
+                      className="flex items-center gap-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 px-3 py-1.5 rounded border border-emerald-500/20 transition-all font-bold group"
+                    >
+                      <Download size={12} className="group-hover:translate-y-0.5 transition-transform" />
+                      SECURE EXPORT (.JSON)
+                    </button>
+                  )}
                 </div>
               </div>
 
