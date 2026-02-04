@@ -1,5 +1,7 @@
 import User from '../models/User.js';
 import nodemailer from 'nodemailer'; // 🟢 Import nodemailer
+import argon2 from 'argon2';
+import { otpStore } from './authController.js';
 
 // 🟢 Setup Email Transporter (Reusing your config)
 const transporter = nodemailer.createTransport({
@@ -15,7 +17,7 @@ const transporter = nodemailer.createTransport({
 // GET /api/users (Admin Only)
 export const getAllUsers = async (req, res) => {
   try {
-    const users = await User.find({}, '-passwordHash'); 
+    const users = await User.find({}, '-passwordHash');
     res.json(users);
   } catch (err) {
     res.status(500).json({ error: "Failed to fetch users" });
@@ -35,8 +37,8 @@ export const updateUserRole = async (req, res) => {
 
     // 2. Update the User in DB
     const updatedUser = await User.findByIdAndUpdate(
-      id, 
-      { role }, 
+      id,
+      { role },
       { new: true, select: '-passwordHash' }
     );
 
@@ -46,7 +48,7 @@ export const updateUserRole = async (req, res) => {
 
     // 3. 📧 SEND EMAIL NOTIFICATION (The New Feature)
     console.log(`📝 Sending Role Update Email to: ${updatedUser.email}`);
-    
+
     const mailOptions = {
       from: `"AKIRA Security System" <${process.env.EMAIL_USER}>`,
       to: updatedUser.email,
@@ -73,5 +75,97 @@ export const updateUserRole = async (req, res) => {
   } catch (err) {
     console.error("Update Role Error:", err);
     res.status(500).json({ error: "Failed to update role" });
+  }
+};
+
+// 👤 UPDATE PROFILE (Username, Profile Picture)
+export const updateProfile = async (req, res) => {
+  try {
+    const { username, profilePicture } = req.body;
+    const userId = req.user.id;
+
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      { username, profilePicture },
+      { new: true, select: '-passwordHash' }
+    );
+
+    if (!updatedUser) return res.status(404).json({ error: "User not found" });
+
+    res.json({ success: true, user: updatedUser });
+  } catch (err) {
+    console.error("Update Profile Error:", err);
+    res.status(500).json({ error: "Failed to update profile" });
+  }
+};
+
+// 🔐 REQUEST PASSWORD CHANGE (Sends OTP)
+export const requestPasswordChange = async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ error: "User not found" });
+
+    // Generate OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    otpStore[user.email] = otp;
+
+    console.log(`\n🔥 === PASSWORD CHANGE OTP for ${user.email}: ${otp} === 🔥\n`);
+
+    const mailOptions = {
+      from: `"AKIRA Security" <${process.env.EMAIL_USER}>`,
+      to: user.email,
+      subject: '🔐 Password Change Verification Code',
+      text: `Your password change verification code is: ${otp}`
+    };
+
+    try {
+      await transporter.sendMail(mailOptions);
+    } catch (err) {
+      console.error("⚠️ Email failed:", err.message);
+    }
+
+    res.json({ success: true, message: "Verification code sent to email" });
+  } catch (err) {
+    console.error("Request Password Change Error:", err);
+    res.status(500).json({ error: "Failed to request password change" });
+  }
+};
+
+// ✅ CONFIRM PASSWORD CHANGE (Verifies OTP & Updates Password)
+export const confirmPasswordChange = async (req, res) => {
+  try {
+    const { otp, newPassword } = req.body;
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ error: "User not found" });
+
+    if (otpStore[user.email] && otpStore[user.email] === otp) {
+      const passwordHash = await argon2.hash(newPassword);
+      user.passwordHash = passwordHash;
+      await user.save();
+
+      delete otpStore[user.email];
+      res.json({ success: true, message: "Password updated successfully" });
+    } else {
+      res.status(400).json({ error: "Invalid or Expired Code" });
+    }
+  } catch (err) {
+    console.error("Confirm Password Change Error:", err);
+    res.status(500).json({ error: "Failed to confirm password change" });
+  }
+};
+
+// 🖼️ UPLOAD AVATAR
+export const uploadAvatar = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: "No file uploaded" });
+    }
+
+    // Return the relative path to the uploaded file
+    const imageUrl = `/uploads/avatars/${req.file.filename}`;
+    res.json({ success: true, imageUrl });
+  } catch (err) {
+    console.error("Upload Avatar Error:", err);
+    res.status(500).json({ error: "Failed to upload avatar" });
   }
 };

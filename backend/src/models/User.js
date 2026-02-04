@@ -10,13 +10,16 @@ const UserSchema = new mongoose.Schema({
   // 🛡️ AUTHORIZATION (Rubric Item: Subjects)
   role: {
     type: String,
-    enum: ['Admin', 'Developer', 'Auditor'], 
+    enum: ['Admin', 'Developer', 'Auditor'],
     default: 'Developer'
   },
 
   // 🔐 MFA (Rubric Item)
   mfaSecret: { type: String },
   mfaEnabled: { type: Boolean, default: false },
+
+  // 🖼️ PROFILE
+  profilePicture: { type: String },
 
   createdAt: { type: Date, default: Date.now }
 });

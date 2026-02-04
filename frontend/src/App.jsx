@@ -1,13 +1,14 @@
 import { useState, useEffect } from "react";
-import { AuthProvider, useAuth } from "./context/AuthContext"; 
-import api from "./api/axios"; 
+import { AuthProvider, useAuth } from "./context/AuthContext";
+import api from "./api/axios";
 import { Loader2 } from "lucide-react";
 
 // Views
 import { HeroView } from "./views/HeroView";
-import LoginView from "./views/LoginView"; 
-import { MFAView } from "./views/MFAView"; 
+import LoginView from "./views/LoginView";
+import { MFAView } from "./views/MFAView";
 import { DashboardView } from "./views/DashboardView";
+import ProfileView from "./views/ProfileView";
 // import { DocumentationView } from "./views/DocumentationView"; // Uncomment if you have this
 
 export default function App() {
@@ -19,9 +20,9 @@ export default function App() {
 }
 
 function MainLogic() {
-  const { user, token, tempEmail, logout, loading: authLoading } = useAuth(); 
+  const { user, token, tempEmail, logout, loading: authLoading } = useAuth();
   const [view, setView] = useState("hero");
-  
+
   // Data State
   const [keys, setKeys] = useState([]);
   const [logs, setLogs] = useState([]);
@@ -36,14 +37,14 @@ function MainLogic() {
     if (token) {
       setView("dashboard");
       fetchDashboardData();
-    } 
+    }
     // Case B: Login success, waiting for MFA -> Go to MFA
     else if (tempEmail) {
-       setView("mfa");
+      setView("mfa");
     }
     // Case C: Logged out -> If currently on restricted pages, kick to Hero
     else if (view === "dashboard" || view === "mfa") {
-       setView("hero");
+      setView("hero");
     }
   }, [token, tempEmail, authLoading]);
 
@@ -105,7 +106,7 @@ function MainLogic() {
       // Call Backend
       const res = await api.post(`${API_URL}/api/keys/generate`, { name, scopes });
       // console.log("Key generated:", res.data);
-      
+
       // Fetch updated keys from backend to get fingerprint and complete data
       try {
         const keysRes = await api.get('/keys');
@@ -123,7 +124,7 @@ function MainLogic() {
         };
         setKeys(prev => [newKey, ...prev]);
       }
-      
+
       // Add a log entry locally for "Alive" feel
       setLogs(prev => [{
         id: Date.now(),
@@ -149,8 +150,8 @@ function MainLogic() {
   if (authLoading) {
     return (
       <div className="h-screen bg-slate-950 flex items-center justify-center text-emerald-500 gap-3">
-         <Loader2 className="animate-spin" size={24} />
-         <span className="font-mono text-sm tracking-wider">INITIALIZING GATEWAY...</span>
+        <Loader2 className="animate-spin" size={24} />
+        <span className="font-mono text-sm tracking-wider">INITIALIZING GATEWAY...</span>
       </div>
     );
   }
@@ -159,25 +160,29 @@ function MainLogic() {
   switch (view) {
     case "hero":
       return <HeroView onStart={handleStart} onDocs={handleDocs} />;
-    
+
     case "login":
       return <LoginView />;
-    
+
     case "mfa":
       return <MFAView onVerify={handleMfaSuccess} onLogout={handleLogout} />;
-    
+
     case "dashboard":
       return (
-        <DashboardView 
-          user={user} 
-          keys={keys} 
-          logs={logs} 
-          onGenerateKey={handleGenerateKey} 
-          onLogout={handleLogout} 
+        <DashboardView
+          user={user}
+          keys={keys}
+          logs={logs}
+          onGenerateKey={handleGenerateKey}
+          onLogout={handleLogout}
           onDeleteKey={handleDeleteKey}
+          onProfile={() => setView("profile")}
         />
       );
-      
+
+    case "profile":
+      return <ProfileView onBack={() => setView("dashboard")} />;
+
     case "docs":
       // return <DocumentationView onBack={() => setView("hero")} />;
       return <HeroView onStart={handleStart} />; // Fallback

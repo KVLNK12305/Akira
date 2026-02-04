@@ -9,7 +9,7 @@ export const AuthProvider = ({ children }) => {
   const [token, setToken] = useState(localStorage.getItem('token') || null);
   const [user, setUser] = useState(null);
   const [tempEmail, setTempEmail] = useState(null);
-  
+
   // ⏳ LOADING STATE (Crucial for fixing "Guest" bug)
   // We won't render the app until we've checked if the user is logged in
   const [loading, setLoading] = useState(true);
@@ -18,19 +18,19 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const loadUser = async () => {
       const storedToken = localStorage.getItem('token');
-      
+
       if (storedToken) {
         // Set the header immediately so the request works
         api.defaults.headers.common['Authorization'] = `Bearer ${storedToken}`;
-        
+
         try {
           // 📡 Call the endpoint we created to get user details
           const res = await api.get('/auth/me');
-          
+
           if (res.data.success) {
-             console.log("✅ Session Restored:", res.data.user.username);
-             setUser(res.data.user);
-             setToken(storedToken);
+            console.log("✅ Session Restored:", res.data.user.username);
+            setUser(res.data.user);
+            setToken(storedToken);
           }
         } catch (error) {
           console.error("⚠️ Session expired or invalid:", error.message);
@@ -49,7 +49,7 @@ export const AuthProvider = ({ children }) => {
   const login = async (email, password) => {
     try {
       const res = await api.post('/auth/login', { email, password });
-      
+
       if (res.data.success) {
         setTempEmail(email); // Save email for MFA step
         return { success: true, requireMfa: true };
@@ -72,9 +72,9 @@ export const AuthProvider = ({ children }) => {
       }
     } catch (error) {
       console.error("Google Auth Failed:", error.response?.data);
-      return { 
-        success: false, 
-        error: error.response?.data?.error || "Google Login Failed" 
+      return {
+        success: false,
+        error: error.response?.data?.error || "Google Login Failed"
       };
     }
   };
@@ -100,7 +100,7 @@ export const AuthProvider = ({ children }) => {
   const register = async (username, email, password, role) => {
     try {
       const res = await api.post('/auth/register', { username, email, password, role });
-      
+
       // Auto-login after register
       setAuthSuccess(res.data.token, res.data.user);
       return { success: true };
@@ -110,17 +110,18 @@ export const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ 
-      user, 
-      token, 
-      tempEmail, 
+    <AuthContext.Provider value={{
+      user,
+      token,
+      tempEmail,
       loading, // expose loading if you want a spinner in App.jsx
-      login, 
-      googleLogin, 
-      logout, 
-      register, 
+      login,
+      googleLogin,
+      logout,
+      register,
       setAuthSuccess, // Use this in MFAView instead of setToken
-      setToken // Keep for backward compatibility if needed
+      setToken, // Keep for backward compatibility if needed
+      updateUser: (newData) => setUser(prev => ({ ...prev, ...newData }))
     }}>
       {/* 🛡️ THE GATEKEEPER: Don't render children until we know who you are */}
       {!loading ? children : <div className="h-screen bg-slate-950 flex items-center justify-center text-emerald-500">Loading Secure Gateway...</div>}

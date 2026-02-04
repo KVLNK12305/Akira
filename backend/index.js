@@ -12,6 +12,11 @@ import connectDB from './src/config/db.js'; // Note the .js extension
 import authRoutes from './src/routes/authRoutes.js'; // <-- NEW
 import keyRoutes from './src/routes/keyRoutes.js';   // <-- NEW
 import auditRoutes from './src/routes/auditRoutes.js'; // 🟢 Import this
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Initialize App
 const app = express();
@@ -30,6 +35,8 @@ app.use(cors({
   origin: 'http://localhost:5173', // Vite Frontend
   credentials: true
 }));
+
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 app.use('/api/auth', authRoutes); // <-- NEW
 app.use('/api/keys', keyRoutes);  // <-- NEW
