@@ -37,8 +37,8 @@ export function DashboardView({ user, keys, logs, onGenerateKey, onLogout, onDel
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
 
-  // 🦀 RUST FEATURE: State for the new key (Only shown once)
-  const [newRotatedKey, setNewRotatedKey] = useState(null);
+  // 🦀 RUST/GATEWAY FEATURE: State for the newly issued key (Only shown once)
+  const [revealedKey, setRevealedKey] = useState(null);
 
   // 🖥️ Rust Core Simulation State (The "Alive" Widget)
   const [systemStats, setSystemStats] = useState({
@@ -57,6 +57,23 @@ export function DashboardView({ user, keys, logs, onGenerateKey, onLogout, onDel
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [logSearch, setLogSearch] = useState("");
+
+  // 🛡️ CUSTOM MODAL STATE
+  const [confirmModal, setConfirmModal] = useState({
+    isOpen: false,
+    title: "",
+    message: "",
+    onConfirm: () => { },
+    isDestructive: false
+  });
+
+  // 🔔 NOTIFICATION STATE
+  const [notification, setNotification] = useState(null);
+
+  const notify = (msg, type = 'success') => {
+    setNotification({ msg, type });
+    setTimeout(() => setNotification(null), 3000);
+  };
 
   // ----------------------------------------
   // 2. SECURITY & RBAC LOGIC
@@ -110,28 +127,25 @@ export function DashboardView({ user, keys, logs, onGenerateKey, onLogout, onDel
 
   // 🦀 RUST FEATURE: ROTATION HANDLER
   const handleRotate = async (keyId) => {
-    // 1. Safety Check (Viva Requirement)
-    if (!window.confirm("⚠️ ROTATE KEY?\nThis will INVALIDATE the old key immediately.\nThe new key will be generated using the RUST Chaos Engine.")) {
-      return;
-    }
-
-    try {
-      // 2. Call the Rust Endpoint
-      const res = await api.post(`/keys/${keyId}/rotate`);
-
-      if (res.data.success) {
-        // 3. Show the Green Box with the new key
-        setNewRotatedKey(res.data.newApiKey);
-
-        // 4. Refresh the list to show new metadata (like Expiry/Fingerprint updates)
-        if (onRefreshKeys) onRefreshKeys();
-
-        alert("✅ Key Rotated via Rust Engine!");
+    setConfirmModal({
+      isOpen: true,
+      title: "Rotate API Key?",
+      message: "This will INVALIDATE the old key immediately. The new key will be generated using the RUST Chaos Engine.",
+      isDestructive: true,
+      onConfirm: async () => {
+        try {
+          const res = await api.post(`/keys/${keyId}/rotate`);
+          if (res.data.success) {
+            setRevealedKey(res.data.newApiKey);
+            if (onRefreshKeys) onRefreshKeys();
+            notify("Key Rotated via Rust Engine!", "success");
+          }
+        } catch (err) {
+          console.error("Rotation failed:", err);
+          notify(err.response?.data?.error || err.message, "error");
+        }
       }
-    } catch (err) {
-      console.error("Rotation failed:", err);
-      alert("❌ Rotation Failed: " + (err.response?.data?.error || err.message));
-    }
+    });
   };
 
   const fetchUsers = async () => {
@@ -155,11 +169,11 @@ export function DashboardView({ user, keys, logs, onGenerateKey, onLogout, onDel
       const res = await api.put(`/users/${userId}/role`, { role: newRole });
 
       if (res.data.success) {
-        // Optional: Show a toast notification here
         console.log(`Role updated to ${newRole} for ${userId}`);
+        notify(`Role updated to ${newRole}`, "success");
       }
     } catch (err) {
-      alert("Failed to update role: " + (err.response?.data?.error || "Server Error"));
+      notify(err.response?.data?.error || "Server Error", "error");
       fetchUsers(); // Revert UI if failed
     }
   };
@@ -179,26 +193,37 @@ export function DashboardView({ user, keys, logs, onGenerateKey, onLogout, onDel
 
       // Refresh logs to show the export event
       onRefreshKeys(); // This might work if it refreshes the whole state, or if we had onRefreshLogs
-      alert("✅ Audit Logs Exported and Signed Successfully!");
+      notify("Audit Logs Exported Successfully!", "success");
     } catch (err) {
       console.error("Export failed:", err);
-      alert("❌ Export Failed: " + (err.response?.data?.error || err.message));
+      notify("Export Failed: " + (err.response?.data?.error || err.message), "error");
     }
   };
 
   const handleDeleteKey = async (keyId, keyName) => {
-    if (!window.confirm(`Are you sure you want to delete the key "${keyName}"? This action cannot be undone.`)) {
-      return;
-    }
+    setConfirmModal({
+      isOpen: true,
+      title: "Delete API Key?",
+      message: `Are you sure you want to delete "${keyName}"? This action cannot be undone.`,
+      isDestructive: true,
+      onConfirm: async () => {
+        try {
+          await api.delete(`/keys/${keyId}`);
+          onDeleteKey?.(keyId);
+          notify("Key deleted successfully", "success");
+        } catch (err) {
+          console.error("Failed to delete key:", err);
+          notify(err.response?.data?.error || "Server Error", "error");
+        }
+      }
+    });
+  };
 
-    try {
-      await api.delete(`/keys/${keyId}`);
-      // Remove from UI
-      onDeleteKey?.(keyId);
-      alert("Key deleted successfully");
-    } catch (err) {
-      console.error("Failed to delete key:", err);
-      alert("Failed to delete key: " + (err.response?.data?.error || "Server Error"));
+  const handleGenerateKeyInternal = async () => {
+    const key = await onGenerateKey("Service Key", ["read:data"]);
+    if (key) {
+      setRevealedKey(key);
+      notify("New Credentials Issued!", "success");
     }
   };
 
@@ -347,7 +372,13 @@ export function DashboardView({ user, keys, logs, onGenerateKey, onLogout, onDel
         <div className="p-4 border-t border-white/5 space-y-1">
           <button
             onClick={() => {
-              if (window.confirm("Are you sure you want to sign out?")) onLogout();
+              setConfirmModal({
+                isOpen: true,
+                title: "Sign Out?",
+                message: "Are you sure you want to end your secure session?",
+                isDestructive: false,
+                onConfirm: onLogout
+              });
             }}
             className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-red-400 hover:bg-red-500/10 transition-all group"
           >
@@ -416,31 +447,31 @@ export function DashboardView({ user, keys, logs, onGenerateKey, onLogout, onDel
           {activeTab === 'keys' && (
             <div className="space-y-6 animate-[fade-in_0.3s]">
 
-              {/* 🦀 RUST FEATURE: NEW KEY DISPLAY (Only shows after rotation) */}
-              {newRotatedKey && (
-                <div className="mb-6 p-4 border-l-4 border-green-500 bg-green-900/20 rounded-r-lg backdrop-blur-md animate-pulse">
-                  <h3 className="text-green-400 font-bold mb-2 flex items-center">
-                    <span className="text-xl mr-2">🦀</span> New Key Generated (Rust Entropy)
+              {/* 🛡️ SECURITY FEATURE: NEW KEY DISPLAY (Shown after Generation or Rotation) */}
+              {revealedKey && (
+                <div className="mb-6 p-4 border-l-4 border-emerald-500 bg-emerald-900/20 rounded-r-lg backdrop-blur-md animate-pulse">
+                  <h3 className="text-emerald-400 font-bold mb-2 flex items-center">
+                    <span className="text-xl mr-2">🔐</span> New Access Credentials Issued
                   </h3>
-                  <p className="text-gray-300 text-sm mb-2">
-                    Please copy this key now. It will not be shown again.
+                  <p className="text-gray-300 text-sm mb-2 font-medium">
+                    Please copy this secret key now. <span className="text-emerald-400">For your security, it will never be displayed again.</span>
                   </p>
                   <div className="flex items-center gap-2">
-                    <code className="block w-full p-3 bg-black/50 rounded border border-green-500/30 text-green-300 font-mono text-lg break-all">
-                      {newRotatedKey}
+                    <code className="block w-full p-3 bg-black/50 rounded border border-emerald-500/30 text-emerald-300 font-mono text-lg break-all">
+                      {revealedKey}
                     </code>
                     <button
-                      onClick={() => { navigator.clipboard.writeText(newRotatedKey); alert("Copied!"); }}
-                      className="p-3 bg-green-600 hover:bg-green-500 text-white rounded font-bold transition-all"
+                      onClick={() => { navigator.clipboard.writeText(revealedKey); notify("Key copied to clipboard!", "success"); }}
+                      className="p-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded font-bold transition-all shadow-lg"
                     >
                       COPY
                     </button>
                   </div>
                   <button
-                    onClick={() => setNewRotatedKey(null)}
+                    onClick={() => setRevealedKey(null)}
                     className="mt-4 text-xs text-gray-400 hover:text-white underline"
                   >
-                    Close this notification
+                    Dismiss notification
                   </button>
                 </div>
               )}
@@ -455,7 +486,7 @@ export function DashboardView({ user, keys, logs, onGenerateKey, onLogout, onDel
                     Generate high-entropy keys for your microservices.
                   </p>
                 </div>
-                <button onClick={() => onGenerateKey("Service Key", ["read:data"])} className="bg-emerald-500 hover:bg-emerald-400 text-black font-bold px-4 py-2 rounded-lg text-sm transition-colors shadow-[0_0_20px_-5px_rgba(16,185,129,0.4)]">
+                <button onClick={handleGenerateKeyInternal} className="bg-emerald-500 hover:bg-emerald-400 text-black font-bold px-4 py-2 rounded-lg text-sm transition-colors shadow-[0_0_20px_-5px_rgba(16,185,129,0.4)]">
                   Generate Key
                 </button>
               </div>
@@ -797,8 +828,12 @@ export function DashboardView({ user, keys, logs, onGenerateKey, onLogout, onDel
         </div>
       </main>
 
-      {/* Modal removed in favor of separate page */}
-
+      {/* 🛡️ SYSTEM OVERLAYS */}
+      <ConfirmationModal
+        {...confirmModal}
+        onCancel={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+      />
+      {notification && <Toast {...notification} />}
     </div>
   );
 }
@@ -966,5 +1001,51 @@ function RoleBadge({ role }) {
     <span className={`px-2.5 py-1 rounded border text-[10px] font-bold uppercase tracking-wider ${style}`}>
       {role}
     </span>
+  );
+}
+
+// 4. Custom Confirmation Modal
+function ConfirmationModal({ isOpen, title, message, onConfirm, onCancel, isDestructive }) {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4">
+      <div
+        className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm animate-[fade-in_0.2s]"
+        onClick={onCancel}
+      ></div>
+      <div className="relative w-full max-w-md bg-slate-900 border border-white/10 rounded-3xl p-8 shadow-[0_20px_50px_rgba(0,0,0,0.5)] animate-[scale-in_0.2s] ring-1 ring-white/10">
+        <div className={`w-14 h-14 rounded-full flex items-center justify-center mb-6 border ${isDestructive ? 'bg-red-500/10 border-red-500/20 text-red-400' : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'}`}>
+          <AlertTriangle size={24} />
+        </div>
+        <h3 className="text-xl font-bold text-white mb-2">{title}</h3>
+        <p className="text-slate-400 text-sm leading-relaxed mb-8">{message}</p>
+        <div className="flex gap-3">
+          <button
+            onClick={onCancel}
+            className="flex-1 px-4 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold transition-all border border-slate-700"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={() => { onConfirm(); onCancel(); }}
+            className={`flex-1 px-4 py-3 rounded-xl font-bold transition-all shadow-lg ${isDestructive ? 'bg-red-600 hover:bg-red-500 text-white shadow-red-900/20' : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-900/20'}`}
+          >
+            Confirm
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// 5. Toast Notification
+function Toast({ msg, type }) {
+  if (!msg) return null;
+  return (
+    <div className={`fixed bottom-8 right-8 z-[10001] flex items-center gap-3 px-6 py-4 rounded-2xl border backdrop-blur-xl shadow-2xl animate-[slide-in-right_0.3s] ${type === 'error' ? 'bg-red-900/20 border-red-500/30 text-red-400' : 'bg-emerald-900/20 border-emerald-500/30 text-emerald-400'}`}>
+      {type === 'error' ? <XCircle size={20} /> : <CheckCircle size={20} />}
+      <span className="font-bold text-sm tracking-tight">{msg}</span>
+    </div>
   );
 }

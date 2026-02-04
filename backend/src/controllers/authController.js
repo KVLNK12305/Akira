@@ -30,7 +30,16 @@ export const register = async (req, res) => {
     await newUser.save();
 
     const token = jwt.sign({ id: newUser._id, role: newUser.role }, process.env.JWT_SECRET, { expiresIn: '1h' });
-    res.status(201).json({ success: true, token, user: { username: newUser.username, email: newUser.email, role: newUser.role } });
+    res.status(201).json({
+      success: true,
+      token,
+      user: {
+        username: newUser.username,
+        email: newUser.email,
+        role: newUser.role,
+        profilePicture: newUser.profilePicture
+      }
+    });
   } catch (error) {
     console.error("Register Error:", error);
     res.status(500).json({ error: 'Registration failed' });
@@ -61,20 +70,21 @@ export const login = async (req, res) => {
       text: `Your Access Code is: ${otp}`
     };
 
-    // 🚀 ATTEMPT EMAIL, BUT DON'T CRASH IF IT FAILS
-    try {
-      await transporter.sendMail(mailOptions);
-      console.log(`📧 Email sent successfully to ${email}`);
-    } catch (emailErr) {
-      console.error("⚠️ EMAIL FAILED (Network Blocked?):", emailErr.message);
-      console.log("✅ Proceeding with Console OTP...");
-    }
+    // 🚀 DONT AWAIT (Don't let slow SMTP block the user)
+    transporter.sendMail(mailOptions)
+      .then(() => console.log(`📧 Login Email sent to ${email}`))
+      .catch((err) => console.log("⚠️ Email failed, use Console OTP:", err.message));
 
     // Always return success so the frontend moves to MFA screen
     res.json({
       success: true,
       message: 'OTP generated',
-      tempUser: { username: user.username, email: user.email, role: user.role }
+      tempUser: {
+        username: user.username,
+        email: user.email,
+        role: user.role,
+        profilePicture: user.profilePicture
+      }
     });
 
   } catch (error) {
@@ -99,7 +109,16 @@ export const verifyMFA = async (req, res) => {
 
       const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '1h' });
       delete otpStore[email];
-      res.json({ success: true, token, user: { username: user.username, role: user.role } });
+      res.json({
+        success: true,
+        token,
+        user: {
+          username: user.username,
+          email: user.email,
+          role: user.role,
+          profilePicture: user.profilePicture
+        }
+      });
     } else {
       res.status(400).json({ error: 'Invalid or Expired Code' });
     }
@@ -112,7 +131,7 @@ export const verifyMFA = async (req, res) => {
 // 4. 🚀 GOOGLE ACCESS (The Fix for Existing Users)
 export const googleAccess = async (req, res) => {
   try {
-    const { email: rawEmail } = req.body; // We trust this email from Google
+    const { email: rawEmail, profilePicture } = req.body; // We trust this email from Google
     const email = rawEmail.toLowerCase();
 
     // A. Check if user exists
@@ -128,12 +147,19 @@ export const googleAccess = async (req, res) => {
         username,
         email,
         passwordHash: randomPass,
-        role: 'Developer'
+        role: 'Developer',
+        profilePicture: profilePicture // Save Google picture if new
       });
       await user.save();
       console.log(`🆕 New Google User Created: ${email}`);
     } else {
       console.log(`✅ Existing User Found via Google: ${email}`);
+      // IF existing user doesn't have a picture, sync with Google
+      if (profilePicture && !user.profilePicture) {
+        user.profilePicture = profilePicture;
+        await user.save();
+        console.log(`🔄 Synced Google Picture for ${email}`);
+      }
     }
 
     // C. Generate OTP (Same logic as Login)
@@ -151,17 +177,21 @@ export const googleAccess = async (req, res) => {
       html: `<h1>Your Google-Auth Code: ${otp}</h1>`
     };
 
-    try {
-      await transporter.sendMail(mailOptions);
-    } catch (err) {
-      console.log("⚠️ Email failed, use Console OTP.");
-    }
+    // 🚀 DONT AWAIT (Don't let slow email block the user)
+    transporter.sendMail(mailOptions)
+      .then(() => console.log(`📧 Google Auth Email sent to ${email}`))
+      .catch((err) => console.log("⚠️ Email failed, use Console OTP:", err.message));
 
     // E. Return Success
     res.json({
       success: true,
       message: 'OTP sent',
-      tempUser: { username: user.username, email: user.email, role: user.role }
+      tempUser: {
+        username: user.username,
+        email: user.email,
+        role: user.role,
+        profilePicture: user.profilePicture
+      }
     });
 
   } catch (error) {

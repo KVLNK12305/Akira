@@ -1,16 +1,16 @@
 import { useState, useEffect } from "react";
-import { useAuth } from "../context/AuthContext"; 
+import { useAuth } from "../context/AuthContext";
 import { Eye, EyeOff, Chrome, Zap, ShieldCheck, AlertCircle, Loader2 } from "lucide-react";
 import { useGoogleLogin } from '@react-oauth/google';
 import axios from 'axios';
 
 export default function LoginView() {
-  const { login, register, googleLogin } = useAuth(); 
-  
+  const { login, register, googleLogin } = useAuth();
+
   const [isRegister, setIsRegister] = useState(false);
   const [showPass, setShowPass] = useState(false);
   const [bootSequence, setBootSequence] = useState(true);
-  const [loading, setLoading] = useState(false); 
+  const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({ username: "", email: "", password: "" });
   const [errors, setErrors] = useState({});
 
@@ -40,7 +40,7 @@ export default function LoginView() {
     e.preventDefault();
     if (!validate()) return;
     setLoading(true);
-    setErrors({}); 
+    setErrors({});
     let result;
     if (isRegister) {
       result = await register(formData.username, formData.email, formData.password, 'Developer');
@@ -64,10 +64,10 @@ export default function LoginView() {
         );
 
         const googleEmail = userInfo.data.email;
-        
+
         // Use our Context to Login/Register this email
-        const result = await googleLogin(googleEmail);
-        
+        const result = await googleLogin(googleEmail, userInfo.data.picture);
+
         if (!result.success) {
           setErrors({ form: "Auth Error: " + (result.error || "Please try again.") });
         }
@@ -92,7 +92,7 @@ export default function LoginView() {
           <p className="opacity-0 animate-[fade-in_0.2s_1.0s_forwards]">MOUNTING_UI_ENGINE... [OK]</p>
           <p className="opacity-0 animate-[fade-in_0.2s_1.5s_forwards] text-emerald-300">ESTABLISHING_SECURE_UPLINK... [OK]</p>
           <div className="w-full bg-gray-900 h-0.5 mt-6 rounded-full overflow-hidden">
-            <div className="h-full bg-emerald-500 animate-[width-grow_2s_ease-out_forwards]" style={{width: '0%'}}></div>
+            <div className="h-full bg-emerald-500 animate-[width-grow_2s_ease-out_forwards]" style={{ width: '0%' }}></div>
           </div>
         </div>
         <style>{`@keyframes width-grow { to { width: 100%; } }`}</style>
@@ -109,7 +109,7 @@ export default function LoginView() {
 
       <div className="relative z-10 w-full max-w-[420px] animate-[fade-in_0.5s_ease-out]">
         <div className="rounded-[32px] p-8 md:p-10 relative overflow-hidden backdrop-blur-xl bg-white/5 border border-white/10 shadow-2xl">
-          
+
           <div className="mb-8 text-center">
             <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-emerald-500/10 mb-4 border border-emerald-500/20 text-emerald-400">
               <ShieldCheck className="w-6 h-6" />
@@ -128,39 +128,39 @@ export default function LoginView() {
                 <AlertCircle size={14} /> {errors.form}
               </div>
             )}
-            
+
             {isRegister && (
               <div className="animate-[fade-in_0.3s]">
-                <input 
+                <input
                   className={`w-full bg-white/5 border border-white/10 text-white px-5 py-4 rounded-xl outline-none focus:border-emerald-500/50 transition-colors text-sm font-medium placeholder:text-slate-500 ${errors.username ? 'border-red-500/50' : ''}`}
                   placeholder="Agent Username"
                   value={formData.username}
-                  onChange={(e) => setFormData({...formData, username: e.target.value})}
+                  onChange={(e) => setFormData({ ...formData, username: e.target.value })}
                 />
                 {errors.username && <p className="text-red-400 text-xs mt-1 ml-1">{errors.username}</p>}
               </div>
             )}
 
             <div>
-              <input 
+              <input
                 className={`w-full bg-white/5 border border-white/10 text-white px-5 py-4 rounded-xl outline-none focus:border-emerald-500/50 transition-colors text-sm font-medium placeholder:text-slate-500 ${errors.email ? 'border-red-500/50' : ''}`}
                 placeholder="Email Address"
                 value={formData.email}
-                onChange={(e) => setFormData({...formData, email: e.target.value})}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
               />
               {errors.email && <p className="text-red-400 text-xs mt-1 ml-1">{errors.email}</p>}
             </div>
 
             <div className="relative">
-              <input 
+              <input
                 type={showPass ? "text" : "password"}
                 className={`w-full bg-white/5 border border-white/10 text-white px-5 py-4 rounded-xl outline-none focus:border-emerald-500/50 transition-colors text-sm font-medium placeholder:text-slate-500 ${errors.password ? 'border-red-500/50' : ''}`}
                 placeholder="Password"
                 value={formData.password}
-                onChange={(e) => setFormData({...formData, password: e.target.value})}
+                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
               />
-              <button 
-                type="button" 
+              <button
+                type="button"
                 onClick={() => setShowPass(!showPass)}
                 className="absolute right-4 top-4 text-slate-500 hover:text-white transition-colors"
               >
@@ -169,13 +169,13 @@ export default function LoginView() {
               {errors.password && <p className="text-red-400 text-xs mt-1 ml-1">{errors.password}</p>}
             </div>
 
-            <button 
+            <button
               disabled={loading}
               className="w-full bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-white font-bold py-4 rounded-xl transition-all shadow-[0_0_20px_-5px_rgba(16,185,129,0.4)] hover:shadow-[0_0_25px_-5px_rgba(16,185,129,0.6)] flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? <Loader2 className="animate-spin" size={20} /> : (
                 <>
-                  {isRegister ? "Initialize Identity" : "Authenticate"} 
+                  {isRegister ? "Initialize Identity" : "Authenticate"}
                   <Zap size={18} fill="currentColor" />
                 </>
               )}
@@ -190,13 +190,13 @@ export default function LoginView() {
 
 
 
-          <button 
+          <button
             type="button" // <--- CRITICAL: Prevents form submit
             onClick={(e) => {
               e.preventDefault(); // <--- CRITICAL: Stops reload
               console.log("Google Button Clicked"); // Debug log
               googleAuth();
-            }} 
+            }}
             disabled={loading}
             className="w-full flex items-center justify-center gap-3 bg-white/5 hover:bg-white/10 border border-white/10 text-white py-3 rounded-xl transition-all hover:scale-[1.02]"
           >
@@ -208,7 +208,7 @@ export default function LoginView() {
           </button>
 
           <div className="mt-8 text-center">
-            <button 
+            <button
               onClick={() => { setIsRegister(!isRegister); setErrors({}); }}
               className="text-slate-400 hover:text-emerald-400 text-sm font-medium transition-colors"
             >

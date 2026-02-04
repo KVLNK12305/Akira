@@ -62,11 +62,11 @@ export const AuthProvider = ({ children }) => {
   };
 
   // 3. ⚡ SMART GOOGLE LOGIN
-  const googleLogin = async (googleEmail) => {
+  const googleLogin = async (googleEmail, profilePicture) => {
     try {
       const normalizedEmail = googleEmail.toLowerCase();
       console.log(`🔍 Google Request for: ${normalizedEmail}`);
-      const res = await api.post('/auth/google', { email: normalizedEmail });
+      const res = await api.post('/auth/google', { email: normalizedEmail, profilePicture });
 
       if (res.data.success) {
         setTempEmail(normalizedEmail);

@@ -6,7 +6,7 @@ import {
 import api, { API_URL } from "../api/axios";
 import { useAuth } from "../context/AuthContext";
 
-export default function ProfileView({ onBack }) {
+export default function ProfileView({ onBack, onLogout }) {
     const { user, updateUser, logout } = useAuth();
     const fileInputRef = useRef(null);
 
@@ -26,6 +26,23 @@ export default function ProfileView({ onBack }) {
     const [otp, setOtp] = useState("");
     const [isLoading, setIsLoading] = useState(false);
     const [passMsg, setPassMsg] = useState({ type: "", text: "" });
+
+    // 🛡️ CUSTOM MODAL STATE
+    const [confirmModal, setConfirmModal] = useState({
+        isOpen: false,
+        title: "",
+        message: "",
+        onConfirm: () => { },
+        isDestructive: false
+    });
+
+    // 🔔 NOTIFICATION STATE
+    const [notification, setNotification] = useState(null);
+
+    const notify = (msg, type = 'success') => {
+        setNotification({ msg, type });
+        setTimeout(() => setNotification(null), 3000);
+    };
 
 
     // --- Handlers ---
@@ -67,7 +84,7 @@ export default function ProfileView({ onBack }) {
                     profilePicture: res.data.imageUrl
                 });
                 updateUser({ profilePicture: res.data.imageUrl });
-                setUpdateMsg({ type: "success", text: "Profile picture updated!" });
+                notify("Profile picture updated!", "success");
             }
         } catch (err) {
             setUpdateMsg({ type: "error", text: err.response?.data?.error || "Upload failed" });
@@ -85,7 +102,7 @@ export default function ProfileView({ onBack }) {
             const res = await api.put('/users/update-profile', { username, profilePicture });
             if (res.data.success) {
                 updateUser(res.data.user);
-                setUpdateMsg({ type: "success", text: "Profile updated successfully!" });
+                notify("Profile updated successfully!", "success");
             }
         } catch (err) {
             setUpdateMsg({ type: "error", text: err.response?.data?.error || "Failed to update profile" });
@@ -111,7 +128,7 @@ export default function ProfileView({ onBack }) {
             const res = await api.post('/users/request-password-change');
             if (res.data.success) {
                 setStep(2);
-                setPassMsg({ type: "success", text: "OTP sent to your email!" });
+                notify("OTP sent to your email!", "success");
             }
         } catch (err) {
             setPassMsg({ type: "error", text: err.response?.data?.error || "Failed to request OTP" });
@@ -128,7 +145,7 @@ export default function ProfileView({ onBack }) {
         try {
             const res = await api.post('/users/confirm-password-change', { otp, newPassword });
             if (res.data.success) {
-                setPassMsg({ type: "success", text: "Password changed successfully!" });
+                notify("Password changed successfully!", "success");
                 setNewPassword("");
                 setOtp("");
                 setStep(1);
@@ -228,7 +245,13 @@ export default function ProfileView({ onBack }) {
                         </div>
                         <button
                             onClick={() => {
-                                if (window.confirm("Are you sure you want to sign out?")) logout();
+                                setConfirmModal({
+                                    isOpen: true,
+                                    title: "Sign Out?",
+                                    message: "Are you sure you want to end your secure session?",
+                                    isDestructive: false,
+                                    onConfirm: onLogout
+                                });
                             }}
                             className="w-full mt-4 flex items-center justify-center gap-2 px-6 py-3 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 rounded-xl font-bold transition-all group"
                         >
@@ -384,6 +407,62 @@ export default function ProfileView({ onBack }) {
                     </div>
                 </div>
             </div>
+
+            {/* 🛡️ SYSTEM OVERLAYS */}
+            <ConfirmationModal
+                {...confirmModal}
+                onCancel={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+            />
+            {notification && <Toast {...notification} />}
         </div>
     );
 }
+
+// 4. Custom Confirmation Modal
+function ConfirmationModal({ isOpen, title, message, onConfirm, onCancel, isDestructive }) {
+    if (!isOpen) return null;
+
+    return (
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4">
+            <div
+                className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm animate-[fade-in_0.2s]"
+                onClick={onCancel}
+            ></div>
+            <div className="relative w-full max-w-md bg-slate-900 border border-white/10 rounded-3xl p-8 shadow-[0_20px_50px_rgba(0,0,0,0.5)] animate-[scale-in_0.2s] ring-1 ring-white/10">
+                <div className={`w-14 h-14 rounded-full flex items-center justify-center mb-6 border ${isDestructive ? 'bg-red-500/10 border-red-500/20 text-red-400' : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'}`}>
+                    <AlertTriangle size={24} />
+                </div>
+                <h3 className="text-xl font-bold text-white mb-2">{title}</h3>
+                <p className="text-slate-400 text-sm leading-relaxed mb-8">{message}</p>
+                <div className="flex gap-3">
+                    <button
+                        onClick={onCancel}
+                        className="flex-1 px-4 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold transition-all border border-slate-700"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        onClick={() => { onConfirm(); onCancel(); }}
+                        className={`flex-1 px-4 py-3 rounded-xl font-bold transition-all shadow-lg ${isDestructive ? 'bg-red-600 hover:bg-red-500 text-white shadow-red-900/20' : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-900/20'}`}
+                    >
+                        Confirm
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// 5. Toast Notification
+function Toast({ msg, type }) {
+    if (!msg) return null;
+    return (
+        <div className={`fixed bottom-8 right-8 z-[10001] flex items-center gap-3 px-6 py-4 rounded-2xl border backdrop-blur-xl shadow-2xl animate-[slide-in-right_0.3s] ${type === 'error' ? 'bg-red-900/20 border-red-500/30 text-red-400' : 'bg-emerald-900/20 border-emerald-500/30 text-emerald-400'}`}>
+            {type === 'error' ? <XCircle size={20} /> : <CheckCircle size={20} />}
+            <span className="font-bold text-sm tracking-tight">{msg}</span>
+        </div>
+    );
+}
+
+// Need to import these specifically for the sub-components to work correctly or they must be defined in the same file
+import { XCircle, CheckCircle } from "lucide-react";

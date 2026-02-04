@@ -43,8 +43,16 @@ function MainLogic() {
       setView("mfa");
     }
     // Case C: Logged out -> If currently on restricted pages, kick to Hero
-    else if (view === "dashboard" || view === "mfa") {
-      setView("hero");
+    else {
+      // 🛡️ SECURITY JANITOR: Completely Purge Sensitive Data on Logout
+      if (!token) {
+        setKeys([]);
+        setLogs([]);
+      }
+
+      if (view === "dashboard" || view === "mfa" || view === "profile") {
+        setView("hero");
+      }
     }
   }, [token, tempEmail, authLoading]);
 
@@ -99,12 +107,10 @@ function MainLogic() {
     setLogs([]);
   };
 
-  const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
-
   const handleGenerateKey = async (name, scopes) => {
     try {
       // Call Backend
-      const res = await api.post(`${API_URL}/api/keys/generate`, { name, scopes });
+      const res = await api.post('/keys/generate', { name, scopes });
       // console.log("Key generated:", res.data);
 
       // Fetch updated keys from backend to get fingerprint and complete data
@@ -133,7 +139,8 @@ function MainLogic() {
         time: new Date().toISOString()
       }, ...prev]);
 
-      alert("API Key Generated Successfully");
+      // alert("API Key Generated Successfully");
+      return res.data.apiKey; // 🚀 RETURN the key so Dashboard can show it!
     } catch (err) {
       console.error(err);
       alert("Failed to generate key: " + (err.response?.data?.error || "Server Error"));
@@ -181,7 +188,7 @@ function MainLogic() {
       );
 
     case "profile":
-      return <ProfileView onBack={() => setView("dashboard")} />;
+      return <ProfileView onBack={() => setView("dashboard")} onLogout={handleLogout} />;
 
     case "docs":
       // return <DocumentationView onBack={() => setView("hero")} />;

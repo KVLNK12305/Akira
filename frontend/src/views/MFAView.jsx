@@ -137,8 +137,8 @@ export function MFAView({ onVerify }) {
           onClick={handleResend}
           disabled={timeLeft > 0 || isResending}
           className={`w-full mt-3 py-3 rounded-xl border border-zinc-700 flex items-center justify-center gap-2 transition-all ${timeLeft === 0
-              ? "bg-zinc-800 text-emerald-400 hover:bg-zinc-700 cursor-pointer"
-              : "bg-transparent text-zinc-600 cursor-not-allowed opacity-50"
+            ? "bg-zinc-800 text-emerald-400 hover:bg-zinc-700 cursor-pointer"
+            : "bg-transparent text-zinc-600 cursor-not-allowed opacity-50"
             }`}
         >
           {isResending ? <Loader2 className="animate-spin" size={16} /> : <RefreshCw size={16} />}

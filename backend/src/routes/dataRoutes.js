@@ -66,10 +66,14 @@ router.post('/nhi-validate', async (req, res) => {
     // Log the simulation
     const logEntry = {
       action: 'NHI_SIMULATION_SUCCESS',
-      actor: keyRecord.name,
-      details: { simulation: true, isBase64 },
-      integritySignature: signData({ sim: true }, process.env.MASTER_KEY)
+      actor: keyRecord.owner,
+      details: { simulation: true, isBase64, machineName: keyRecord.name },
+      timestamp: new Date()
     };
+
+    // Sign the entry (excluding the soon-to-be-added signature)
+    logEntry.integritySignature = signData(logEntry, process.env.MASTER_KEY);
+
     await AuditLog.create(logEntry);
 
     res.json({
