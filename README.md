@@ -17,6 +17,7 @@ AKIRA implements a **Hybrid Identity Plane**, strictly separating human administ
 * **Standard:** NIST SP 800-63-2 E-Authentication.
 * **Auth:** **Argon2id Hashing** for passwords (memory-hard).
 * **MFA:** Email-based 6-digit session validation (Fail-safe console logging supported).
+* **Identity Management:** Profile avatars with automated file scanning and MFA-protected password transitions.
 * **Role-Based Access Control (RBAC):** Admin, Developer, Auditor, Newbie tiers.
 
 ### 2. The Data Plane (Machine Identity)
@@ -25,6 +26,10 @@ AKIRA implements a **Hybrid Identity Plane**, strictly separating human administ
     * **DB Storage:** `AES-256-GCM(Key)` + `SHA-256(Fingerprint)`.
 * **Transmission:** Base64 Encoded Bearer Tokens with `akira_` prefix.
 * **Guardian Eye (NHI Lab):** Real-time machine handshake tracing and protocol verification.
+
+### 3. Verification & Compliance
+* **Immutable Audit Trails:** Every security action is stamped with an **HMAC-SHA256 Integrity Signature**.
+* **Secure Evidence Export:** Cryptographically signed log reports available in Base64-JSON and Formatted PDF.
 
 ---
 
@@ -35,6 +40,7 @@ AKIRA features a state-of-the-art "Sentinel" dashboard designed for security pro
 * **Fixed-Viewport Layout**: A stable, app-like experience with no vertical page scrolling.
 * **Intelligent Menus**: Role management dropdowns with built-in collision detection (auto-flipping) and scale transitions.
 * **Live Terminal**: Integrated NHI handshake console for real-time security observability.
+* **Visual Identity**: Integrated profile management with secure avatar uploads and dynamic status indicators.
 
 ---
 
@@ -47,7 +53,8 @@ AKIRA features a state-of-the-art "Sentinel" dashboard designed for security pro
 | **Database** | **MongoDB Atlas** | Document store for encrypted key blobs and audit trails. |
 | **Frontend** | **React + Vite** | High-performance dashboard with Glassmorphism UI. |
 | **Styling** | **Vanilla CSS + GSAP** | Custom professional scrollbars and smooth animations. |
-| **Crypto** | **Node Crypto + Argon2** | Industry-standard cryptographic libraries. |
+| **Reporting** | **jsPDF + AutoTable** | Client-side generation of secure compliance reports. |
+| **Media** | **Multer** | Secure handling of multipart/form-data for identity assets. |
 
 ---
 
@@ -86,12 +93,9 @@ pnpm dev
 1. **Ciphertext:** Encrypted using **AES-256-GCM** with a hardware-secured `MASTER_KEY`.
 2. **Fingerprint:** A `SHA-256` hash for indexed O(1) lookups during the handshake.
 
-### C. Guardian Eye Handshake
-The simulation lab traces the following stages:
-1. **Transport**: Base64 payload decoding.
-2. **Protocol**: Prefix and entropy validation.
-3. **Security**: Fingerprint derivation.
-4. **Identity**: Resolve machine identity from the Hashed Vault.
+### C. Digital Signatures (Audit)
+1. **Signing:** Auditable events are HMAC-SHA256 hashed using the system `MASTER_KEY`.
+2. **Chain of Trust:** Prevents database manipulation by verifying the integrity of the log entry upon export.
 
 ---
 
@@ -103,12 +107,15 @@ The simulation lab traces the following stages:
 | `POST` | `/api/auth/login` | Initiate challenge (Issue OTP) |
 | `POST` | `/api/auth/verify-mfa` | Finalize session & Issue JWT |
 | `PUT` | `/api/users/update-profile` | Update identity metadata |
+| `POST` | `/api/users/request-password-change` | MFA Challenge for credential rotation |
+| `POST` | `/api/users/upload-avatar` | Secure media ingestion (JPG/PNG) |
 
-### Machine Management (NIST Compliant)
+### Machine Management & Evidence
 | Method | Endpoint | Description |
 | --- | --- | --- |
 | `POST` | `/api/keys/generate` | Issue new Encrypted API Key |
 | `GET` | `/api/keys` | List active fingerprints |
+| `GET` | `/api/audit-logs/export` | Signed cryptographic evidence extraction |
 | `POST` | `/api/v1/nhi-validate` | **Guardian Eye** Live Handshake |
 
 ---
@@ -121,6 +128,3 @@ The simulation lab traces the following stages:
 
 *This project is built strictly for educational purposes to demonstrate secure identity management principles.*
 
-```
-
-```
