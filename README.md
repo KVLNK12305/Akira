@@ -17,8 +17,11 @@ AKIRA implements a **Hybrid Identity Plane**, strictly separating human administ
 * **Standard:** NIST SP 800-63-2 E-Authentication.
 * **Auth:** **Argon2id Hashing** for passwords (memory-hard).
 * **MFA:** Email-based 6-digit session validation (Fail-safe console logging supported).
+* **Hardening:** Strict NoSQL Injection prevention via schema-driven type coercion.
 * **Identity Management:** Profile avatars with automated file scanning and MFA-protected password transitions.
 * **Role-Based Access Control (RBAC):** Admin, Developer, Auditor, Newbie tiers.
+* **Transport Security:** MITM protection via **HSTS (Strict-Transport-Security)** and `nosniff` content typing.
+* **Traffic Control:** Global Rate Limiting to prevent brute-force and DDoS exploration.
 
 ### 2. The Data Plane (Machine Identity)
 * **Credential:** **AES-256-GCM** Encrypted API Keys.
@@ -55,6 +58,7 @@ AKIRA features a state-of-the-art "Sentinel" dashboard designed for security pro
 | **Styling** | **Vanilla CSS + GSAP** | Custom professional scrollbars and smooth animations. |
 | **Reporting** | **jsPDF + AutoTable** | Client-side generation of secure compliance reports. |
 | **Media** | **Multer** | Secure handling of multipart/form-data for identity assets. |
+| **Security Handling** | **Helmet + RateLimit** | Automated MITM protection, HSTS, and request throttling. |
 
 ---
 
@@ -96,6 +100,11 @@ pnpm dev
 ### C. Digital Signatures (Audit)
 1. **Signing:** Auditable events are HMAC-SHA256 hashed using the system `MASTER_KEY`.
 2. **Chain of Trust:** Prevents database manipulation by verifying the integrity of the log entry upon export.
+
+### D. Transport Hardening (DAST Optimized)
+1. **HSTS:** Enforced HTTPS context for 1 year (`max-age=31536000`).
+2. **XSS Protection:** Strict Content Security Policy (CSP) and `X-Content-Type-Options`.
+3. **Throttling:** 100 requests per 15-minute window per IP to neutralize brute-force automation.
 
 ---
 

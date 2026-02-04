@@ -21,7 +21,8 @@ export const otpStore = {};
 // 1. REGISTER
 export const register = async (req, res) => {
   try {
-    const { username, email, password, role } = req.body;
+    const { username, email: rawEmail, password } = req.body;
+    const email = String(rawEmail).toLowerCase();
 
     // 🔒 PASSWORD POLICY (Rubric Item: complexity)
     const passwordRegex = /^(?=.*[0-9])(?=.*[!@#$%^&*])[a-zA-Z0-9!@#$%^&*]{8,}$/;
@@ -35,7 +36,8 @@ export const register = async (req, res) => {
     if (existingUser) return res.status(400).json({ error: 'User already exists' });
 
     const passwordHash = await argon2.hash(password);
-    const newUser = new User({ username, email, passwordHash, role: role || 'Developer' });
+    // 🛡️ SECURITY FIX: Hardcode role to Developer to prevent Mass Assignment (Privilege Escalation)
+    const newUser = new User({ username, email, passwordHash, role: 'Developer' });
     await newUser.save();
 
     const token = jwt.sign({ id: newUser._id, role: newUser.role }, process.env.JWT_SECRET, { expiresIn: '1h' });
@@ -59,7 +61,7 @@ export const register = async (req, res) => {
 export const login = async (req, res) => {
   try {
     const { email: rawEmail, password } = req.body;
-    const email = rawEmail.toLowerCase();
+    const email = String(rawEmail).toLowerCase(); // 🛡️ SECURITY FIX: NoSQL Injection Prevention
     const user = await User.findOne({ email });
     if (!user) return res.status(404).json({ error: 'Account not found. Please register.' });
 
@@ -109,8 +111,9 @@ export const login = async (req, res) => {
 // 3. VERIFY MFA
 export const verifyMFA = async (req, res) => {
   try {
-    const { email: rawEmail, otp } = req.body;
-    const email = rawEmail.toLowerCase();
+    const { email: rawEmail, otp: rawOtp } = req.body;
+    const email = String(rawEmail).toLowerCase();
+    const otp = String(rawOtp); // 🛡️ SECURITY FIX: NoSQL Injection Prevention
 
     // Debug Log
     const storedData = otpStore[email];
@@ -165,7 +168,7 @@ export const verifyMFA = async (req, res) => {
 export const googleAccess = async (req, res) => {
   try {
     const { email: rawEmail, profilePicture } = req.body; // We trust this email from Google
-    const email = rawEmail.toLowerCase();
+    const email = String(rawEmail).toLowerCase(); // 🛡️ SECURITY FIX: NoSQL Injection Prevention
 
     // A. Check if user exists
     let user = await User.findOne({ email });

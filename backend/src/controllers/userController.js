@@ -81,7 +81,8 @@ export const updateUserRole = async (req, res) => {
 // 👤 UPDATE PROFILE (Username, Profile Picture)
 export const updateProfile = async (req, res) => {
   try {
-    const { username, profilePicture } = req.body;
+    const { username: rawUsername, profilePicture } = req.body;
+    const username = String(rawUsername); // 🛡️ SECURITY FIX: NoSQL Injection Prevention
     const userId = req.user.id;
 
     const updatedUser = await User.findByIdAndUpdate(
@@ -105,9 +106,13 @@ export const requestPasswordChange = async (req, res) => {
     const user = await User.findById(req.user.id);
     if (!user) return res.status(404).json({ error: "User not found" });
 
-    // Generate OTP
+    // 🛡️ SECURITY FIX: Use the same robust OTP structure as login to prevent brute force
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    otpStore[user.email] = otp;
+    otpStore[user.email] = {
+      code: otp,
+      expiresAt: Date.now() + 5 * 60 * 1000, // 5 min
+      attempts: 0
+    };
 
     console.log(`\n🔥 === PASSWORD CHANGE OTP for ${user.email}: ${otp} === 🔥\n`);
 
@@ -134,11 +139,41 @@ export const requestPasswordChange = async (req, res) => {
 // ✅ CONFIRM PASSWORD CHANGE (Verifies OTP & Updates Password)
 export const confirmPasswordChange = async (req, res) => {
   try {
-    const { otp, newPassword } = req.body;
+    const { otp: rawOtp, newPassword: rawNewPassword } = req.body;
+    const otp = String(rawOtp);
+    const newPassword = String(rawNewPassword); // 🛡️ SECURITY FIX: NoSQL Injection Prevention
+
     const user = await User.findById(req.user.id);
     if (!user) return res.status(404).json({ error: "User not found" });
 
-    if (otpStore[user.email] && otpStore[user.email] === otp) {
+    const storedData = otpStore[user.email];
+
+    if (!storedData || typeof storedData !== 'object') {
+      return res.status(400).json({ error: "No active password change session found." });
+    }
+
+    // A. Check Expiry
+    if (Date.now() > storedData.expiresAt) {
+      delete otpStore[user.email];
+      return res.status(400).json({ error: "Code has expired." });
+    }
+
+    // B. Check Attempts (Brute Force Protection)
+    if (storedData.attempts >= 5) {
+      delete otpStore[user.email];
+      return res.status(403).json({ error: "Too many failed attempts. Security lockout." });
+    }
+
+    // C. Verify
+    if (storedData.code === otp) {
+      // 🔒 PASSWORD POLICY
+      const passwordRegex = /^(?=.*[0-9])(?=.*[!@#$%^&*])[a-zA-Z0-9!@#$%^&*]{8,}$/;
+      if (!passwordRegex.test(newPassword)) {
+        return res.status(400).json({
+          error: 'Password must be at least 8 characters long and include at least one number and one special character (!@#$%^&*).'
+        });
+      }
+
       const passwordHash = await argon2.hash(newPassword);
       user.passwordHash = passwordHash;
       await user.save();
@@ -146,7 +181,8 @@ export const confirmPasswordChange = async (req, res) => {
       delete otpStore[user.email];
       res.json({ success: true, message: "Password updated successfully" });
     } else {
-      res.status(400).json({ error: "Invalid or Expired Code" });
+      storedData.attempts += 1;
+      res.status(400).json({ error: `Invalid Code. ${5 - storedData.attempts} attempts remaining.` });
     }
   } catch (err) {
     console.error("Confirm Password Change Error:", err);

@@ -19,18 +19,19 @@ router.get('/secret-report', verifyApiKey, (req, res) => {
 
 // 👁️ NHI LIVE LAB: Detailed Validation Simulation
 router.post('/nhi-validate', verifyToken, async (req, res) => {
-  const { key, isBase64 } = req.body;
+  const { key: rawKeyContent, isBase64 } = req.body;
 
-  if (!key) return res.status(400).json({ error: 'Key is required' });
+  if (!rawKeyContent) return res.status(400).json({ error: 'Key is required' });
 
-  let rawKey = key;
+  // 🛡️ SECURITY FIX: NoSQL Injection Prevention (Force String)
+  let rawKey = String(rawKeyContent);
   let steps = [];
 
   try {
     // Stage 1: Decoding
     steps.push({ stage: 'TRANSPORT', msg: isBase64 ? 'Decoding Base64 Payload...' : 'Direct Payload Received.' });
     if (isBase64) {
-      rawKey = Buffer.from(key, 'base64').toString('utf8');
+      rawKey = Buffer.from(rawKey, 'base64').toString('utf8');
     }
 
     // Stage 2: Format Check
