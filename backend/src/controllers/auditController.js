@@ -20,8 +20,11 @@ export const getMyLogs = async (req, res) => {
 // @route   GET /api/audit-logs/export
 export const exportLogs = async (req, res) => {
   try {
-    // 1. Fetch all system logs
-    const allLogs = await AuditLog.find()
+    // 1. Fetch logs based on role (Admins see all, Users see theirs)
+    const canSeeAll = ['admin', 'superadmin', 'auditor'].includes(req.user.role?.toLowerCase());
+    const query = canSeeAll ? {} : { actor: req.user.id };
+
+    const allLogs = await AuditLog.find(query)
       .populate('actor', 'username email role')
       .sort({ timestamp: -1 });
 
@@ -48,15 +51,17 @@ export const exportLogs = async (req, res) => {
     };
 
     // 4. Record this export event in the Audit Logs (Chain of Custody)
+    const exportFormat = req.query.format || 'JSON';
     const exportEvent = new AuditLog({
-      action: 'LOGS_EXPORTED',
+      action: `LOGS_EXPORTED_${exportFormat.toUpperCase()}`,
       actor: req.user._id,
       ipAddress: req.ip,
       details: {
+        format: exportFormat,
         logCount: allLogs.length,
         signature: signature
       },
-      integritySignature: signData({ action: 'LOGS_EXPORTED', actor: req.user._id }, process.env.MASTER_KEY || 'default_secret')
+      integritySignature: signData({ action: `LOGS_EXPORTED_${exportFormat.toUpperCase()}`, actor: req.user._id }, process.env.MASTER_KEY || 'default_secret')
     });
     await exportEvent.save();
 
