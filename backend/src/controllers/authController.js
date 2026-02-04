@@ -22,6 +22,15 @@ export const otpStore = {};
 export const register = async (req, res) => {
   try {
     const { username, email, password, role } = req.body;
+
+    // 🔒 PASSWORD POLICY (Rubric Item: complexity)
+    const passwordRegex = /^(?=.*[0-9])(?=.*[!@#$%^&*])[a-zA-Z0-9!@#$%^&*]{8,}$/;
+    if (!passwordRegex.test(password)) {
+      return res.status(400).json({
+        error: 'Password must be at least 8 characters long and include at least one number and one special character (!@#$%^&*).'
+      });
+    }
+
     const existingUser = await User.findOne({ email });
     if (existingUser) return res.status(400).json({ error: 'User already exists' });
 
@@ -57,9 +66,13 @@ export const login = async (req, res) => {
     const isMatch = await argon2.verify(user.passwordHash, password);
     if (!isMatch) return res.status(401).json({ error: 'Invalid credentials' });
 
-    // Generate OTP
+    // Generate OTP with Expiry and Attempt Counter (Rubric Item: timing & incorrect attempts)
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    otpStore[email] = otp;
+    otpStore[email] = {
+      code: otp,
+      expiresAt: Date.now() + 5 * 60 * 1000, // 5 Minutes
+      attempts: 0
+    };
 
     console.log(`\n🔥 === FAIL-SAFE OTP: ${otp} === 🔥\n(Use this if email fails)\n`);
 
@@ -100,10 +113,27 @@ export const verifyMFA = async (req, res) => {
     const email = rawEmail.toLowerCase();
 
     // Debug Log
+    const storedData = otpStore[email];
     console.log(`🔍 Verifying: ${email} with Code: ${otp}`);
-    console.log(`   Stored Code: ${otpStore[email]}`);
 
-    if (otpStore[email] && otpStore[email] === otp) {
+    if (!storedData) {
+      return res.status(400).json({ error: 'No active session found. Please login again.' });
+    }
+
+    // A. Check Expiry
+    if (Date.now() > storedData.expiresAt) {
+      delete otpStore[email];
+      return res.status(400).json({ error: 'OTP has expired. Please request a new one.' });
+    }
+
+    // B. Check Lockout (Too many attempts)
+    if (storedData.attempts >= 5) {
+      delete otpStore[email];
+      return res.status(403).json({ error: 'Too many failed attempts. Security lockout. Please login again.' });
+    }
+
+    // C. Verify Code
+    if (storedData.code === otp) {
       const user = await User.findOne({ email });
       if (!user) return res.status(404).json({ error: 'User not found' });
 
@@ -120,7 +150,10 @@ export const verifyMFA = async (req, res) => {
         }
       });
     } else {
-      res.status(400).json({ error: 'Invalid or Expired Code' });
+      storedData.attempts += 1;
+      res.status(400).json({
+        error: `Invalid Code. ${5 - storedData.attempts} attempts remaining.`
+      });
     }
   } catch (error) {
     console.error("MFA Verify Error:", error);
@@ -164,7 +197,11 @@ export const googleAccess = async (req, res) => {
 
     // C. Generate OTP (Same logic as Login)
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    otpStore[email] = otp;
+    otpStore[email] = {
+      code: otp,
+      expiresAt: Date.now() + 5 * 60 * 1000, // 5 Minutes
+      attempts: 0
+    };
 
     // FAIL-SAFE LOGGING
     console.log(`\n🔥 === FAIL-SAFE OTP: ${otp} === 🔥\n`);

@@ -1,5 +1,6 @@
 import express from 'express';
 import { verifyApiKey } from '../middleware/apiKeyMiddleware.js';
+import { verifyToken } from '../middleware/authMiddleware.js';
 import APIKey from '../models/APIKey.js';
 import AuditLog from '../models/AuditLog.js';
 import { hashFingerprint, signData } from '../utils/crypto.js';
@@ -17,7 +18,7 @@ router.get('/secret-report', verifyApiKey, (req, res) => {
 });
 
 // 👁️ NHI LIVE LAB: Detailed Validation Simulation
-router.post('/nhi-validate', async (req, res) => {
+router.post('/nhi-validate', verifyToken, async (req, res) => {
   const { key, isBase64 } = req.body;
 
   if (!key) return res.status(400).json({ error: 'Key is required' });
