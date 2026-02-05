@@ -22,12 +22,16 @@ export const verifyApiKey = async (req, res, next) => {
 
     if (!keyRecord || !keyRecord.isActive) {
       // LOG FAILURE (Security)
-      await AuditLog.create({
+      const denialLog = {
         action: 'ACCESS_DENIED',
-        actor: 'Unknown',
+        actorDisplay: 'Anonymous',
         ipAddress: req.ip,
-        details: { reason: 'Invalid or Revoked Key' },
-        integritySignature: signData({ reason: 'Invalid Key' }, process.env.MASTER_KEY)
+        details: { reason: 'Invalid or Revoked Key' }
+      };
+
+      await AuditLog.create({
+        ...denialLog,
+        integritySignature: signData(denialLog, process.env.MASTER_KEY)
       });
       return res.status(401).json({ error: 'Invalid or Revoked API Key' });
     }
@@ -42,11 +46,16 @@ export const verifyApiKey = async (req, res, next) => {
 
     // 5. Log Success (Rubric: Audit)
     // In production, maybe don't log *every* read, but for Lab, YES.
-    await AuditLog.create({
+    const accessLog = {
       action: 'API_ACCESS',
-      actor: keyRecord.name, // The Machine Name
-      details: { path: req.path },
-      integritySignature: signData({ path: req.path }, process.env.MASTER_KEY)
+      actor: keyRecord.owner,
+      actorDisplay: `Machine: ${keyRecord.name}`,
+      details: { path: req.path }
+    };
+
+    await AuditLog.create({
+      ...accessLog,
+      integritySignature: signData(accessLog, process.env.MASTER_KEY)
     });
 
     next();

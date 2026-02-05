@@ -35,6 +35,7 @@ export const generateKey = async (req, res) => {
     const logEntry = {
       action: 'KEY_GENERATED',
       actor: userId,
+      actorDisplay: req.user.username,
       timestamp: new Date(),
       details: { keyId: newKey._id }
     };
@@ -99,10 +100,11 @@ export const rotateKey = async (req, res) => {
 
     // 5. Audit Log
     const logEntry = {
-      action: 'KEY_ROTATION_RUST', // Specific action for audit
-      actor: userId,
+      action: 'KEY_ROTATED',
+      actor: req.user.id,
+      actorDisplay: req.user.username,
       timestamp: new Date(),
-      details: { keyId: id, engine: "Rust/Bun-FFI" }
+      details: { keyId: id, engine: "RustEntropy_v1.0" }
     };
 
     await AuditLog.create({
@@ -162,6 +164,7 @@ export const deleteKey = async (req, res) => {
     const logEntry = {
       action: 'KEY_DELETED',
       actor: userId,
+      actorDisplay: req.user.username,
       timestamp: new Date(),
       details: { keyId: id, keyName: key.name }
     };

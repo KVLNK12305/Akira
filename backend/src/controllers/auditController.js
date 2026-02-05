@@ -52,16 +52,21 @@ export const exportLogs = async (req, res) => {
 
     // 4. Record this export event in the Audit Logs (Chain of Custody)
     const exportFormat = req.query.format || 'JSON';
-    const exportEvent = new AuditLog({
+    const exportLog = {
       action: `LOGS_EXPORTED_${exportFormat.toUpperCase()}`,
       actor: req.user._id,
+      actorDisplay: req.user.username,
       ipAddress: req.ip,
       details: {
         format: exportFormat,
         logCount: allLogs.length,
         signature: signature
-      },
-      integritySignature: signData({ action: `LOGS_EXPORTED_${exportFormat.toUpperCase()}`, actor: req.user._id }, process.env.MASTER_KEY || 'default_secret')
+      }
+    };
+
+    const exportEvent = new AuditLog({
+      ...exportLog,
+      integritySignature: signData(exportLog, process.env.MASTER_KEY || 'default_secret')
     });
     await exportEvent.save();
 

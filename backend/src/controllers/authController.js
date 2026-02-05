@@ -1,7 +1,9 @@
 import User from '../models/User.js';
+import AuditLog from '../models/AuditLog.js';
 import argon2 from 'argon2';
 import jwt from 'jsonwebtoken';
 import nodemailer from 'nodemailer';
+import { signData } from '../utils/crypto.js';
 
 // Setup Email Transporter
 // 1. Using Port 587 (TLS) is less likely to be blocked than 465
@@ -40,6 +42,21 @@ export const register = async (req, res) => {
     const newUser = new User({ username, email, passwordHash, role: 'Developer' });
     await newUser.save();
 
+    // AUDIT LOG
+    const logEntry = {
+      action: 'USER_REGISTERED',
+      actor: newUser._id,
+      actorDisplay: newUser.username,
+      ipAddress: req.ip,
+      details: { email: newUser.email }
+    };
+
+    await AuditLog.create({
+      ...logEntry,
+      integritySignature: signData(logEntry, process.env.MASTER_KEY)
+    });
+
+    console.log(`User Registered Successfully: ${email}`);
     const token = jwt.sign({ id: newUser._id, role: newUser.role }, process.env.JWT_SECRET, { expiresIn: '1h' });
     res.status(201).json({
       success: true,
@@ -141,6 +158,21 @@ export const verifyMFA = async (req, res) => {
       if (!user) return res.status(404).json({ error: 'User not found' });
 
       const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '1h' });
+
+      // AUDIT LOG: SUCCESSFUL LOGIN
+      const logEntry = {
+        action: 'USER_LOGIN_SUCCESS',
+        actor: user._id,
+        actorDisplay: user.username,
+        ipAddress: req.ip,
+        details: { email: user.email }
+      };
+
+      await AuditLog.create({
+        ...logEntry,
+        integritySignature: signData(logEntry, process.env.MASTER_KEY)
+      });
+
       delete otpStore[email];
       res.json({
         success: true,
@@ -154,6 +186,20 @@ export const verifyMFA = async (req, res) => {
       });
     } else {
       storedData.attempts += 1;
+
+      // AUDIT LOG: FAILED MFA
+      const failLog = {
+        action: 'MFA_FAILED',
+        actorDisplay: email, // Use email as display for unknown/failed attempts
+        ipAddress: req.ip,
+        details: { email, attempts: storedData.attempts }
+      };
+
+      await AuditLog.create({
+        ...failLog,
+        integritySignature: signData(failLog, process.env.MASTER_KEY)
+      });
+
       res.status(400).json({
         error: `Invalid Code. ${5 - storedData.attempts} attempts remaining.`
       });

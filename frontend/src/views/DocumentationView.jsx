@@ -74,7 +74,7 @@ export function DocumentationView({ onBack, roleLabel }) {
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <InfoCard title="Encryption Standard" value="AES-256-GCM" desc="Vault keys are hardware-encrypted at rest." />
+                <InfoCard title="Encryption Standard" value="AES-256-CBC" desc="Vault keys are hardware-encrypted at rest." />
                 <InfoCard title="Hashing Algo" value="Argon2id" desc="NIST-compliant user password storage." />
               </div>
 

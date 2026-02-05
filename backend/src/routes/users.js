@@ -1,5 +1,5 @@
 import express from 'express';
-import { getAllUsers, updateUserRole, updateProfile, requestPasswordChange, confirmPasswordChange, uploadAvatar } from '../controllers/userController.js';
+import { getAllUsers, updateUserRole, deleteUser, updateProfile, requestPasswordChange, confirmPasswordChange, uploadAvatar } from '../controllers/userController.js';
 import { verifyToken, isAdmin } from '../middleware/authMiddleware.js';
 import multer from 'multer';
 import path from 'path';
@@ -39,6 +39,7 @@ const router = express.Router();
 // 🔒 Protected Routes: Only Admins can access these
 router.get('/', verifyToken, isAdmin, getAllUsers);
 router.put('/:id/role', verifyToken, isAdmin, updateUserRole);
+router.delete('/:id', verifyToken, isAdmin, deleteUser);
 
 // 👤 Profile Routes (Authenticated Users)
 router.put('/update-profile', verifyToken, updateProfile);

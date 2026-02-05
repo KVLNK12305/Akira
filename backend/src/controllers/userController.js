@@ -1,7 +1,10 @@
 import User from '../models/User.js';
-import nodemailer from 'nodemailer'; // 🟢 Import nodemailer
+import APIKey from '../models/APIKey.js';
+import AuditLog from '../models/AuditLog.js';
+import nodemailer from 'nodemailer'; // Import nodemailer
 import argon2 from 'argon2';
 import { otpStore } from './authController.js';
+import { signData } from '../utils/crypto.js';
 
 // 🟢 Setup Email Transporter (Reusing your config)
 const transporter = nodemailer.createTransport({
@@ -190,7 +193,50 @@ export const confirmPasswordChange = async (req, res) => {
   }
 };
 
-// 🖼️ UPLOAD AVATAR
+// DELETE /api/users/:id (Admin Only)
+export const deleteUser = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // 1. Prevent self-deletion
+    if (req.user.id === id) {
+      return res.status(400).json({ error: "Self-deletion is prohibited for security reasons." });
+    }
+
+    const userToDelete = await User.findById(id);
+    if (!userToDelete) {
+      return res.status(404).json({ error: "User not found." });
+    }
+
+    // 2. Cascade Delete: Remove their API Keys
+    await APIKey.deleteMany({ owner: id });
+
+    // 3. Delete the User
+    await User.findByIdAndDelete(id);
+
+    // 4. Audit Log
+    const logEntry = {
+      action: 'USER_DELETED',
+      actor: req.user.id,
+      actorDisplay: req.user.username,
+      timestamp: new Date(),
+      details: { deletedUserId: id, deletedUsername: userToDelete.username }
+    };
+
+    await AuditLog.create({
+      ...logEntry,
+      integritySignature: signData(logEntry, process.env.MASTER_KEY)
+    });
+
+    res.json({ success: true, message: `User ${userToDelete.username} and their assets have been removed.` });
+
+  } catch (err) {
+    console.error("Delete User Error:", err);
+    res.status(500).json({ error: "Failed to delete user." });
+  }
+};
+
+// UPLOAD AVATAR
 export const uploadAvatar = async (req, res) => {
   try {
     if (!req.file) {

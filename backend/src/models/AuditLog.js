@@ -1,45 +1,49 @@
 import mongoose from 'mongoose';
 
 const AuditLogSchema = new mongoose.Schema({
-  action: { 
-    type: String, 
+  action: {
+    type: String,
     required: true,
     index: true // ⚡ Faster searches for 'KEY_GENERATED' etc.
   },
-  actor: { 
-    type: mongoose.Schema.Types.ObjectId, // 🔗 Link to User Model
+  actor: {
+    type: mongoose.Schema.Types.ObjectId, // Link to User ID
     ref: 'User',
-    required: true 
+    required: false // Allow null for anonymous actions (denials)
   },
-  ipAddress: { 
-    type: String 
+  actorDisplay: {
+    type: String, // "Admin", "System", "Machine: Node-1", etc.
+    required: true
   },
-  timestamp: { 
-    type: Date, 
+  ipAddress: {
+    type: String
+  },
+  timestamp: {
+    type: Date,
     default: Date.now,
     index: true // ⚡ Faster sorting by date
   },
-  details: { 
+  details: {
     type: mongoose.Schema.Types.Mixed, // Stores any JSON data
-    default: {} 
+    default: {}
   },
-  
+
   // ✍️ DIGITAL SIGNATURE (The Rubric Requirement)
-  integritySignature: { 
-    type: String, 
-    required: true 
+  integritySignature: {
+    type: String,
+    required: true
   }
 });
 
 // 🛡️ SECURITY FEATURE: IMMUTABILITY
 // This middleware blocks anyone from updating/editing a log after creation.
 // "Audit Logs must be Write-Once, Read-Many (WORM)"
-AuditLogSchema.pre('findOneAndUpdate', function(next) {
+AuditLogSchema.pre('findOneAndUpdate', function (next) {
   const err = new Error('⚠️ SECURITY VIOLATION: Audit Logs are immutable.');
   next(err);
 });
 
-AuditLogSchema.pre('updateOne', function(next) {
+AuditLogSchema.pre('updateOne', function (next) {
   const err = new Error('⚠️ SECURITY VIOLATION: Audit Logs are immutable.');
   next(err);
 });

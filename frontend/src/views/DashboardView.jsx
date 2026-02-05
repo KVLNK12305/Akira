@@ -187,6 +187,26 @@ export function DashboardView({ user, keys, logs, onGenerateKey, onLogout, onDel
     }
   };
 
+  const handleUserDelete = async (userId, username) => {
+    setConfirmModal({
+      isOpen: true,
+      title: "Delete User Account?",
+      message: `Warning: This will permanently remove ${username}'s access and all associated API keys. This action is irreversible.`,
+      isDestructive: true,
+      onConfirm: async () => {
+        try {
+          const res = await api.delete(`/users/${userId}`);
+          if (res.data.success) {
+            setUserList(prev => prev.filter(u => u._id !== userId));
+            notify(res.data.message, "success");
+          }
+        } catch (err) {
+          notify(err.response?.data?.error || "Deletion Failed", "error");
+        }
+      }
+    });
+  };
+
   const handleExportLogs = () => {
     setExportModal({ isOpen: true, loading: false });
   };
@@ -597,7 +617,7 @@ export function DashboardView({ user, keys, logs, onGenerateKey, onLogout, onDel
                           {k?.fingerprint || "****"}
                         </td>
                         <td className="px-6 py-4 text-emerald-400 font-mono text-xs">
-                          <span className="flex items-center gap-2"><Lock size={12} /> AES-256-GCM</span>
+                          <span className="flex items-center gap-2"><Lock size={12} /> AES-256-CBC</span>
                         </td>
                         <td className="px-6 py-4">
                           <span className="px-2 py-1 bg-emerald-500/10 text-emerald-400 text-xs rounded border border-emerald-500/20">Active</span>
@@ -764,6 +784,7 @@ export function DashboardView({ user, keys, logs, onGenerateKey, onLogout, onDel
                             userRow={u}
                             currentUser={user}
                             onRoleChange={handleRoleChange}
+                            onDeleteUser={handleUserDelete}
                           />
                         ))}
                       </tbody>
@@ -934,7 +955,7 @@ export function DashboardView({ user, keys, logs, onGenerateKey, onLogout, onDel
 // ==========================================
 
 // 1. UserRow Component - Handles Independent Dropdown State
-function UserRow({ userRow, currentUser, onRoleChange }) {
+function UserRow({ userRow, currentUser, onRoleChange, onDeleteUser }) {
   const [isOpen, setIsOpen] = useState(false);
   const [coords, setCoords] = useState({ top: 0, left: 0 });
   const [openUpwards, setOpenUpwards] = useState(false);
@@ -998,58 +1019,69 @@ function UserRow({ userRow, currentUser, onRoleChange }) {
             System Identity
           </span>
         ) : (
-          <div className="relative inline-block" ref={dropdownRef}>
+          <div className="flex items-center justify-end gap-3">
+            {/* DELETE USER BUTTON */}
             <button
-              ref={triggerRef}
-              onClick={() => setIsOpen(!isOpen)}
-              className={`flex items-center gap-2 border px-4 py-2 rounded-full text-xs font-bold transition-all duration-300 ring-offset-2 ring-offset-slate-950
-                ${isOpen
-                  ? 'bg-emerald-500 border-emerald-400 text-black shadow-[0_0_20px_rgba(16,185,129,0.4)] ring-2 ring-emerald-500/20'
-                  : 'bg-slate-800/50 border-slate-700 hover:border-slate-500 text-slate-200 hover:bg-slate-700'
-                }`}
+              onClick={() => onDeleteUser(userRow._id, userRow.username)}
+              className="p-2 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded-full transition-all border border-red-500/20 group/btn"
+              title="Delete User"
             >
-              Modify Role
-              <ChevronDown size={14} className={`transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`} />
+              <Trash2 size={14} className="group-hover/btn:scale-110 transition-transform" />
             </button>
 
-            {/* DROPDOWN MENU - USING FIXED POSITIONING FOR PORTAL EFFECT */}
-            {isOpen && (
-              <div
-                className={`fixed ${openUpwards ? '-translate-y-[calc(100%+12px)]' : 'mt-3'} w-48 bg-slate-900/95 backdrop-blur-2xl border border-white/10 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] overflow-hidden animate-[in_0.2s_ease-out] origin-top-right ring-1 ring-white/10`}
-                style={{
-                  zIndex: 10000,
-                  top: coords.top,
-                  left: coords.left + 192 - 192, // Manual right-align logic below
-                  transform: openUpwards ? 'translate(-100% , -100%)' : 'translateX(-100%)' // Shift to align right edge
-                }}
+            <div className="relative inline-block" ref={dropdownRef}>
+              <button
+                ref={triggerRef}
+                onClick={() => setIsOpen(!isOpen)}
+                className={`flex items-center gap-2 border px-4 py-2 rounded-full text-xs font-bold transition-all duration-300 ring-offset-2 ring-offset-slate-950
+                ${isOpen
+                    ? 'bg-emerald-500 border-emerald-400 text-black shadow-[0_0_20px_rgba(16,185,129,0.4)] ring-2 ring-emerald-500/20'
+                    : 'bg-slate-800/50 border-slate-700 hover:border-slate-500 text-slate-200 hover:bg-slate-700'
+                  }`}
               >
+                Modify Role
+                <ChevronDown size={14} className={`transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`} />
+              </button>
+
+              {/* DROPDOWN MENU - USING FIXED POSITIONING FOR PORTAL EFFECT */}
+              {isOpen && (
                 <div
-                  ref={dropdownRef}
-                  className="p-1.5 space-y-1"
+                  className={`fixed ${openUpwards ? '-translate-y-[calc(100%+12px)]' : 'mt-3'} w-48 bg-slate-900/95 backdrop-blur-2xl border border-white/10 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] overflow-hidden animate-[in_0.2s_ease-out] origin-top-right ring-1 ring-white/10`}
+                  style={{
+                    zIndex: 10000,
+                    top: coords.top,
+                    left: coords.left + 192 - 192, // Manual right-align logic below
+                    transform: openUpwards ? 'translate(-100% , -100%)' : 'translateX(-100%)' // Shift to align right edge
+                  }}
                 >
-                  {roles.map(r => (
-                    <button
-                      key={r}
-                      onClick={() => {
-                        onRoleChange(userRow._id, r);
-                        setIsOpen(false);
-                      }}
-                      className={`w-full text-left px-4 py-3 text-xs font-bold transition-all duration-200 flex items-center justify-between rounded-xl group
+                  <div
+                    ref={dropdownRef}
+                    className="p-1.5 space-y-1"
+                  >
+                    {roles.map(r => (
+                      <button
+                        key={r}
+                        onClick={() => {
+                          onRoleChange(userRow._id, r);
+                          setIsOpen(false);
+                        }}
+                        className={`w-full text-left px-4 py-3 text-xs font-bold transition-all duration-200 flex items-center justify-between rounded-xl group
                             ${userRow.role === r
-                          ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                          : 'text-slate-400 hover:bg-white/5 hover:text-white'}
+                            ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                            : 'text-slate-400 hover:bg-white/5 hover:text-white'}
                           `}
-                    >
-                      <span className="flex items-center gap-2">
-                        <div className={`w-1.5 h-1.5 rounded-full ${userRow.role === r ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.5)]' : 'bg-slate-600'}`}></div>
-                        {r}
-                      </span>
-                      {userRow.role === r && <CheckCircle size={14} className="text-emerald-400" />}
-                    </button>
-                  ))}
+                      >
+                        <span className="flex items-center gap-2">
+                          <div className={`w-1.5 h-1.5 rounded-full ${userRow.role === r ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.5)]' : 'bg-slate-600'}`}></div>
+                          {r}
+                        </span>
+                        {userRow.role === r && <CheckCircle size={14} className="text-emerald-400" />}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         )}
       </td>
