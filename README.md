@@ -9,7 +9,7 @@
 
 ---
 
-## 🛡️ Core Security Architecture
+## Core Security Architecture
 
 AKIRA implements a **Hybrid Identity Plane**, strictly separating human administrators from machine consumers.
 
@@ -24,9 +24,9 @@ AKIRA implements a **Hybrid Identity Plane**, strictly separating human administ
 * **Traffic Control:** Global Rate Limiting to prevent brute-force and DDoS exploration.
 
 ### 2. The Data Plane (Machine Identity)
-* **Credential:** **AES-256-GCM** Encrypted API Keys.
+* **Credential:** **AES-256-CBC** Encrypted API Keys.
 * **Storage:** Keys are **never** stored in plaintext.
-    * **DB Storage:** `AES-256-GCM(Key)` + `SHA-256(Fingerprint)`.
+    * **DB Storage:** `AES-256-CBC(Key)` + `SHA-256(Fingerprint)`.
 * **Transmission:** Base64 Encoded Bearer Tokens with `akira_` prefix.
 * **Guardian Eye (NHI Lab):** Real-time machine handshake tracing and protocol verification.
 
@@ -36,9 +36,9 @@ AKIRA implements a **Hybrid Identity Plane**, strictly separating human administ
 
 ---
 
-## 💎 Premium UI/UX Features
+## Premium UI/UX Features
 
-AKIRA features a state-of-the-art "Sentinel" dashboard designed for security professionals:
+AKIRA features a state-of-the-art dashboard designed for security professionals:
 * **Aero-Glass Aesthetics**: High-end glassmorphism with `backdrop-blur-2xl` and professional micro-animations.
 * **Fixed-Viewport Layout**: A stable, app-like experience with no vertical page scrolling.
 * **Intelligent Menus**: Role management dropdowns with built-in collision detection (auto-flipping) and scale transitions.
@@ -47,7 +47,7 @@ AKIRA features a state-of-the-art "Sentinel" dashboard designed for security pro
 
 ---
 
-## ⚡ Tech Stack
+## Tech Stack
 
 | Component | Technology | Rationale |
 | :--- | :--- | :--- |
@@ -55,14 +55,14 @@ AKIRA features a state-of-the-art "Sentinel" dashboard designed for security pro
 | **Backend** | **Express.js** | Robust REST API framework. |
 | **Database** | **MongoDB Atlas** | Document store for encrypted key blobs and audit trails. |
 | **Frontend** | **React + Vite** | High-performance dashboard with Glassmorphism UI. |
-| **Styling** | **Vanilla CSS + GSAP** | Custom professional scrollbars and smooth animations. |
+| **Styling** | **Vanilla CSS + GSAP** | Custom professional font and smooth animations. |
 | **Reporting** | **jsPDF + AutoTable** | Client-side generation of secure compliance reports. |
 | **Media** | **Multer** | Secure handling of multipart/form-data for identity assets. |
 | **Security Handling** | **Helmet + RateLimit** | Automated MITM protection, HSTS, and request throttling. |
 
 ---
 
-## 🚀 Getting Started
+## Getting Started
 
 ### Prerequisites
 * [Bun](https://bun.sh/) (v1.0+)
@@ -86,7 +86,7 @@ pnpm dev
 
 ---
 
-## 🔐 Cryptographic Implementation Details
+## Cryptographic Implementation Details
 
 ### A. Key Generation
 1. **Entropy:** 32 bytes of random data are generated.
@@ -94,7 +94,7 @@ pnpm dev
 3. **Display:** Shown **ONCE** to the user.
 
 ### B. Secure Vault
-1. **Ciphertext:** Encrypted using **AES-256-GCM** with a hardware-secured `MASTER_KEY`.
+1. **Ciphertext:** Encrypted using **AES-256-CBC** with a hardware-secured `MASTER_KEY`.
 2. **Fingerprint:** A `SHA-256` hash for indexed O(1) lookups during the handshake.
 
 ### C. Digital Signatures (Audit)
@@ -108,7 +108,7 @@ pnpm dev
 
 ---
 
-## 📡 API Reference
+## API Reference
 
 ### Human Auth & Profile
 | Method | Endpoint | Description |
@@ -122,10 +122,10 @@ pnpm dev
 ### Machine Management & Evidence
 | Method | Endpoint | Description |
 | --- | --- | --- |
-| `POST` | `/api/keys/generate` | Issue new Encrypted API Key |
-| `GET` | `/api/keys` | List active fingerprints |
+| `POST` | `/keys/generate` | Issue new Encrypted API Key |
+| `GET` | `/keys` | List active fingerprints |
 | `GET` | `/api/audit-logs/export` | Signed cryptographic evidence extraction |
-| `POST` | `/api/v1/nhi-validate` | **Guardian Eye** Live Handshake |
+| `POST` | `/v1/nhi-validate` | Guardian Eye Live Handshake |
 
 ---
 

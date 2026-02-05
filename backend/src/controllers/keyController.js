@@ -1,7 +1,7 @@
 import APIKey from '../models/APIKey.js';
 import AuditLog from '../models/AuditLog.js';
 import { generateAPIKey, encrypt, hashFingerprint, signData } from '../utils/crypto.js';
-import { generateRustKey } from '../utils/rustEngine.js'; // 🦀 Import The Chaos Engine
+import { generateRustKey } from '../utils/rustEngine.js'; // Import Entropy Engine
 
 // @desc    Generate a new API Key (Standard Node.js)
 // @route   POST /keys/generate
@@ -11,9 +11,9 @@ export const generateKey = async (req, res) => {
     const userId = req.user.id;
 
     // 1. GENERATE (Rubric: Key Gen)
-    const rawKey = generateAPIKey(); 
+    const rawKey = generateAPIKey();
 
-    // 2. ENCRYPT (Rubric: Encryption AES-256)
+    // 2. ENCRYPT (AES-256-CBC)
     const encryptedData = encrypt(rawKey, process.env.MASTER_KEY);
     const [iv, encryptedKey] = encryptedData.split(':');
 
@@ -58,31 +58,31 @@ export const generateKey = async (req, res) => {
   }
 };
 
-// @desc    Rotate Key using Rust Entropy (The "Cool" Feature)
+// @desc    Rotate Key using Rust Entropy
 // @route   POST /keys/:id/rotate
 export const rotateKey = async (req, res) => {
   try {
     const { id } = req.params;
     const userId = req.user.id;
-    
+
     // 1. Find the Old Key
     const oldKey = await APIKey.findById(id);
     if (!oldKey || oldKey.owner.toString() !== userId) {
       return res.status(404).json({ error: "Key not found or unauthorized" });
     }
 
-    // 2. 🦀 GENERATE NEW KEY WITH RUST 🦀
+    // 2. GENERATE NEW KEY WITH RUST
     // This calls your compiled .so file
-    console.log("⚡ Invoking Rust Entropy Engine...");
+    console.log("Invoking Rust Entropy Engine...");
     let newRawKey;
     try {
-        newRawKey = generateRustKey(); 
-        console.log("✅ Rust generated key successfully.");
+      newRawKey = generateRustKey();
+      console.log("Rust generated key successfully.");
     } catch (rustError) {
-        console.error("❌ Rust Engine Failed:", rustError.message);
-        return res.status(503).json({ 
-            error: "Entropy Engine Failure. The Rust subsystem is offline." 
-        });
+      console.error("Rust Engine Failed:", rustError.message);
+      return res.status(503).json({
+        error: "Entropy Engine Failure. The Rust subsystem is offline."
+      });
     }
 
     // 3. Encrypt & Hash (Standard Procedure)
@@ -126,7 +126,7 @@ export const rotateKey = async (req, res) => {
 export const getMyKeys = async (req, res) => {
   try {
     const keys = await APIKey.find({ owner: req.user.id });
-    
+
     res.json(keys.map(k => ({
       id: k._id,
       name: k.name,
@@ -148,7 +148,7 @@ export const deleteKey = async (req, res) => {
     const userId = req.user.id;
 
     const key = await APIKey.findById(id);
-    
+
     if (!key) {
       return res.status(404).json({ error: "Key not found" });
     }

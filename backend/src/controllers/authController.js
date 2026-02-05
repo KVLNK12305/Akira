@@ -24,7 +24,7 @@ export const register = async (req, res) => {
     const { username, email: rawEmail, password } = req.body;
     const email = String(rawEmail).toLowerCase();
 
-    // 🔒 PASSWORD POLICY (Rubric Item: complexity)
+    // PASSWORD POLICY (Rubric Item: complexity)
     const passwordRegex = /^(?=.*[0-9])(?=.*[!@#$%^&*])[a-zA-Z0-9!@#$%^&*]{8,}$/;
     if (!passwordRegex.test(password)) {
       return res.status(400).json({
@@ -36,7 +36,7 @@ export const register = async (req, res) => {
     if (existingUser) return res.status(400).json({ error: 'User already exists' });
 
     const passwordHash = await argon2.hash(password);
-    // 🛡️ SECURITY FIX: Hardcode role to Developer to prevent Mass Assignment (Privilege Escalation)
+    // SECURITY FIX: Hardcode role to Developer to prevent Mass Assignment (Privilege Escalation)
     const newUser = new User({ username, email, passwordHash, role: 'Developer' });
     await newUser.save();
 
@@ -61,7 +61,7 @@ export const register = async (req, res) => {
 export const login = async (req, res) => {
   try {
     const { email: rawEmail, password } = req.body;
-    const email = String(rawEmail).toLowerCase(); // 🛡️ SECURITY FIX: NoSQL Injection Prevention
+    const email = String(rawEmail).toLowerCase(); // SECURITY FIX: NoSQL Injection Prevention
     const user = await User.findOne({ email });
     if (!user) return res.status(404).json({ error: 'Account not found. Please register.' });
 
@@ -76,7 +76,7 @@ export const login = async (req, res) => {
       attempts: 0
     };
 
-    console.log(`\n🔥 === FAIL-SAFE OTP: ${otp} === 🔥\n(Use this if email fails)\n`);
+    console.log(`\n=== FAIL-SAFE OTP: ${otp} ===\n(Use this if email fails)\n`);
 
     const mailOptions = {
       from: `"AKIRA Security" <${process.env.EMAIL_USER}>`,
@@ -85,10 +85,10 @@ export const login = async (req, res) => {
       text: `Your Access Code is: ${otp}`
     };
 
-    // 🚀 DONT AWAIT (Don't let slow SMTP block the user)
+    // DONT AWAIT (Don't let slow SMTP block the user)
     transporter.sendMail(mailOptions)
-      .then(() => console.log(`📧 Login Email sent to ${email}`))
-      .catch((err) => console.log("⚠️ Email failed, use Console OTP:", err.message));
+      .then(() => console.log(`Email sent to ${email}`))
+      .catch((err) => console.log("Email failed, use Console OTP:", err.message));
 
     // Always return success so the frontend moves to MFA screen
     res.json({
@@ -113,7 +113,7 @@ export const verifyMFA = async (req, res) => {
   try {
     const { email: rawEmail, otp: rawOtp } = req.body;
     const email = String(rawEmail).toLowerCase();
-    const otp = String(rawOtp); // 🛡️ SECURITY FIX: NoSQL Injection Prevention
+    const otp = String(rawOtp); // SECURITY FIX: NoSQL Injection Prevention
 
     // Debug Log
     const storedData = otpStore[email];
@@ -168,7 +168,7 @@ export const verifyMFA = async (req, res) => {
 export const googleAccess = async (req, res) => {
   try {
     const { email: rawEmail, profilePicture } = req.body; // We trust this email from Google
-    const email = String(rawEmail).toLowerCase(); // 🛡️ SECURITY FIX: NoSQL Injection Prevention
+    const email = String(rawEmail).toLowerCase(); // SECURITY FIX: NoSQL Injection Prevention
 
     // A. Check if user exists
     let user = await User.findOne({ email });
@@ -187,9 +187,9 @@ export const googleAccess = async (req, res) => {
         profilePicture: profilePicture // Save Google picture if new
       });
       await user.save();
-      console.log(`🆕 New Google User Created: ${email}`);
+      console.log(`New Google User Created: ${email}`);
     } else {
-      console.log(`✅ Existing User Found via Google: ${email}`);
+      console.log(`User Found via Google: ${email}`);
       // IF existing user doesn't have a picture, sync with Google
       if (profilePicture && !user.profilePicture) {
         user.profilePicture = profilePicture;
@@ -207,7 +207,7 @@ export const googleAccess = async (req, res) => {
     };
 
     // FAIL-SAFE LOGGING
-    console.log(`\n🔥 === FAIL-SAFE OTP: ${otp} === 🔥\n`);
+    console.log(`\n=== FAIL-SAFE OTP: ${otp} ===\n`);
 
     // D. Send Email (Fail-Safe)
     const mailOptions = {
@@ -217,10 +217,10 @@ export const googleAccess = async (req, res) => {
       html: `<h1>Your Google-Auth Code: ${otp}</h1>`
     };
 
-    // 🚀 DONT AWAIT (Don't let slow email block the user)
+    // DONT AWAIT (Don't let slow email block the user)
     transporter.sendMail(mailOptions)
-      .then(() => console.log(`📧 Google Auth Email sent to ${email}`))
-      .catch((err) => console.log("⚠️ Email failed, use Console OTP:", err.message));
+      .then(() => console.log(`Google Auth Email sent to ${email}`))
+      .catch((err) => console.log("Email failed, use Console OTP:", err.message));
 
     // E. Return Success
     res.json({

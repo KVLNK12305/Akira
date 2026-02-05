@@ -27,7 +27,7 @@ const PORT = process.env.PORT || 5000;
 connectDB();
 
 // 2. SECURITY MIDDLEWARE (MITM & DAST Fixes)
-// 🛡️ HELMET: Sets security headers (HSTS, CSP, Frame Options, etc.)
+// HELMET: Sets security headers (HSTS, CSP, Frame Options, etc.)
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
@@ -46,7 +46,7 @@ app.use(helmet({
   }
 }));
 
-// 🛡️ RATE LIMITING: Prevents Brute Force/DDoS
+// RATE LIMITING: Prevents Brute Force/DDoS
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 100, // Limit each IP to 100 requests per window
@@ -54,7 +54,7 @@ const limiter = rateLimit({
 });
 app.use('/api/', limiter);
 
-// 🛡️ HIDE FINGERPRINTING
+// HIDE FINGERPRINTING
 app.disable('x-powered-by');
 
 app.use(express.json());
@@ -89,7 +89,7 @@ app.get('/', (req, res) => {
 
 // 4. Start Server
 app.listen(PORT, () => {
-  console.log(`\n🚀 AKIRA Gateway System Online`);
-  console.log(`   📡 Port: ${PORT}`);
-  console.log(`   🔗 Mode: ${process.env.NODE_ENV || 'Development'}`);
+  console.log(`\nAKIRA Gateway System Online`);
+  console.log(`   Port: ${PORT}`);
+  console.log(`   Mode: ${process.env.NODE_ENV || 'Development'}`);
 });

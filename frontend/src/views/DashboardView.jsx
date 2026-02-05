@@ -40,10 +40,10 @@ export function DashboardView({ user, keys, logs, onGenerateKey, onLogout, onDel
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
 
-  // 🦀 RUST/GATEWAY FEATURE: State for the newly issued key (Only shown once)
+  // RUST/GATEWAY FEATURE: State for the newly issued key (Only shown once)
   const [revealedKey, setRevealedKey] = useState(null);
 
-  // 🖥️ Rust Core Simulation State (The "Alive" Widget)
+  // Rust Core Simulation State (The "Alive" Widget)
   const [systemStats, setSystemStats] = useState({
     integrity: "SECURE",
     activeNodes: 3,
@@ -51,7 +51,7 @@ export function DashboardView({ user, keys, logs, onGenerateKey, onLogout, onDel
     temp: 45
   });
 
-  // 👁️ NHI LAB STATE
+  // NHI LAB STATE
   const [nhiInput, setNhiInput] = useState("");
   const [nhiIsBase64, setNhiIsBase64] = useState(false);
   const [nhiSteps, setNhiSteps] = useState([]);
@@ -61,13 +61,13 @@ export function DashboardView({ user, keys, logs, onGenerateKey, onLogout, onDel
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [logSearch, setLogSearch] = useState("");
 
-  // 📁 EXPORT MODAL STATE
+  // EXPORT MODAL STATE
   const [exportModal, setExportModal] = useState({
     isOpen: false,
     loading: false
   });
 
-  // 🛡️ CUSTOM MODAL STATE
+  // CUSTOM MODAL STATE
   const [confirmModal, setConfirmModal] = useState({
     isOpen: false,
     title: "",
@@ -76,7 +76,7 @@ export function DashboardView({ user, keys, logs, onGenerateKey, onLogout, onDel
     isDestructive: false
   });
 
-  // 🔔 NOTIFICATION STATE
+  // NOTIFICATION STATE
   const [notification, setNotification] = useState(null);
 
   const notify = (msg, type = 'success') => {
@@ -134,7 +134,7 @@ export function DashboardView({ user, keys, logs, onGenerateKey, onLogout, onDel
   // 4. API HANDLERS
   // ----------------------------------------
 
-  // 🦀 RUST FEATURE: ROTATION HANDLER
+  // RUST FEATURE: ROTATION HANDLER
   const handleRotate = async (keyId) => {
     setConfirmModal({
       isOpen: true,
@@ -365,7 +365,7 @@ export function DashboardView({ user, keys, logs, onGenerateKey, onLogout, onDel
   return (
     <div className="h-screen bg-slate-950 flex text-slate-200 font-sans selection:bg-emerald-500/30 overflow-hidden">
 
-      {/* 📱 MOBILE HEADER */}
+      {/* MOBILE HEADER */}
       <div className="md:hidden fixed top-0 w-full z-40 bg-slate-900/80 backdrop-blur-md border-b border-slate-800 p-4 flex justify-between items-center">
         <div className="flex items-center gap-2">
           <Shield className="w-6 h-6 text-emerald-400" />
@@ -494,7 +494,7 @@ export function DashboardView({ user, keys, logs, onGenerateKey, onLogout, onDel
             </p>
           </div>
 
-          {/* 🖥️ RUST IRON CORE WIDGET (LIVE) */}
+          {/* RUST IRON CORE WIDGET (LIVE) */}
           <div className="flex gap-3">
             {/* Widget 1: Integrity */}
             <div className="bg-black/40 border border-slate-800 px-4 py-2 rounded-xl flex items-center gap-3 backdrop-blur-sm transition-all hover:border-emerald-500/30 group">
@@ -533,11 +533,11 @@ export function DashboardView({ user, keys, logs, onGenerateKey, onLogout, onDel
           {activeTab === 'keys' && (
             <div className="space-y-6 animate-[fade-in_0.3s]">
 
-              {/* 🛡️ SECURITY FEATURE: NEW KEY DISPLAY (Shown after Generation or Rotation) */}
+              {/* SECURITY FEATURE: NEW KEY DISPLAY (Shown after Generation or Rotation) */}
               {revealedKey && (
                 <div className="mb-6 p-4 border-l-4 border-emerald-500 bg-emerald-900/20 rounded-r-lg backdrop-blur-md animate-pulse">
                   <h3 className="text-emerald-400 font-bold mb-2 flex items-center">
-                    <span className="text-xl mr-2">🔐</span> New Access Credentials Issued
+                    <Lock className="w-5 h-5 mr-2" /> New Access Credentials Issued
                   </h3>
                   <p className="text-gray-300 text-sm mb-2 font-medium">
                     Please copy this secret key now. <span className="text-emerald-400">For your security, it will never be displayed again.</span>
@@ -605,7 +605,7 @@ export function DashboardView({ user, keys, logs, onGenerateKey, onLogout, onDel
                         <td className="px-6 py-4 text-slate-500 text-xs font-mono">{formatDate(k?.createdAt)}</td>
                         <td className="px-6 py-4">
                           <div className="flex gap-2">
-                            {/* 🦀 RUST FEATURE: ROTATE BUTTON */}
+                            {/* RUST FEATURE: ROTATE BUTTON */}
                             <button
                               onClick={() => handleRotate(k.id)}
                               className="bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-400 hover:text-yellow-300 p-2 rounded transition-colors flex items-center gap-1 text-xs border border-yellow-500/20"
