@@ -20,6 +20,38 @@ const transporter = nodemailer.createTransport({
 // Store OTPs in memory
 export const otpStore = {};
 
+// Helper to set cookie and send response
+const sendTokenResponse = (user, statusCode, res) => {
+  const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, {
+    expiresIn: '1h'
+  });
+
+  const options = {
+    expires: new Date(Date.now() + 60 * 60 * 1000), // 1 hour
+    httpOnly: true,
+    sameSite: 'lax',
+    path: '/'
+  };
+
+  if (process.env.NODE_ENV === 'production') {
+    options.secure = true;
+  }
+
+  res
+    .status(statusCode)
+    .cookie('token', token, options)
+    .json({
+      success: true,
+      token, // Keeping for transitional support
+      user: {
+        username: user.username,
+        email: user.email,
+        role: user.role,
+        profilePicture: user.profilePicture
+      }
+    });
+};
+
 // 1. REGISTER
 export const register = async (req, res) => {
   try {
@@ -57,17 +89,7 @@ export const register = async (req, res) => {
     });
 
     console.log(`User Registered Successfully: ${email}`);
-    const token = jwt.sign({ id: newUser._id, role: newUser.role }, process.env.JWT_SECRET, { expiresIn: '1h' });
-    res.status(201).json({
-      success: true,
-      token,
-      user: {
-        username: newUser.username,
-        email: newUser.email,
-        role: newUser.role,
-        profilePicture: newUser.profilePicture
-      }
-    });
+    sendTokenResponse(newUser, 201, res);
   } catch (error) {
     console.error("Register Error:", error);
     res.status(500).json({ error: 'Registration failed' });
@@ -174,16 +196,7 @@ export const verifyMFA = async (req, res) => {
       });
 
       delete otpStore[email];
-      res.json({
-        success: true,
-        token,
-        user: {
-          username: user.username,
-          email: user.email,
-          role: user.role,
-          profilePicture: user.profilePicture
-        }
-      });
+      sendTokenResponse(user, 200, res);
     } else {
       storedData.attempts += 1;
 
@@ -297,4 +310,14 @@ export const getMe = async (req, res) => {
   } catch (error) {
     res.status(500).json({ success: false, error: 'Server Error' });
   }
+};
+
+// 6. LOGOUT
+export const logout = async (req, res) => {
+  res.cookie('token', 'none', {
+    expires: new Date(Date.now() + 5 * 1000), // 5 seconds
+    httpOnly: true
+  });
+
+  res.status(200).json({ success: true, message: 'Logged out successfully' });
 };
