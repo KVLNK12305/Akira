@@ -91,9 +91,14 @@ export const AuthProvider = ({ children }) => {
   // 6. REGISTER
   const register = async (username, email, password, role) => {
     try {
-      const res = await api.post('/auth/register', { username, email, password, role });
-      // Auto-login after register
-      setAuthSuccess(null, res.data.user);
+      const normalizedEmail = email.toLowerCase();
+      const res = await api.post('/auth/register', { username, email: normalizedEmail, password, role });
+
+      if (res.data.success && res.data.requireMfa) {
+        setTempEmail(normalizedEmail); // Save email for MFA step
+        return { success: true, requireMfa: true };
+      }
+
       return { success: true };
     } catch (error) {
       return { success: false, error: error.response?.data?.error || "Registration Failed" };

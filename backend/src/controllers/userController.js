@@ -169,11 +169,11 @@ export const confirmPasswordChange = async (req, res) => {
 
     // C. Verify
     if (storedData.code === otp) {
-      // 🔒 PASSWORD POLICY
-      const passwordRegex = /^(?=.*[0-9])(?=.*[!@#$%^&*])[a-zA-Z0-9!@#$%^&*]{8,}$/;
+      // 🔒 PASSWORD POLICY (Enforce: 8+ chars, 1 Upper, 1 Lower, 1 Number, 1 Special)
+      const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.*[!@#$%^&*_\-\.]).{8,}$/;
       if (!passwordRegex.test(newPassword)) {
         return res.status(400).json({
-          error: 'Password must be at least 8 characters long and include at least one number and one special character (!@#$%^&*).'
+          error: 'Security Policy Violation: Password must be 8+ chars with Uppercase, Lowercase, Number, and Special character (!@#$%^&*_-.).'
         });
       }
 
@@ -193,12 +193,59 @@ export const confirmPasswordChange = async (req, res) => {
   }
 };
 
+// Helper to notify all admins
+const notifyAdmins = async (action, details) => {
+  try {
+    const admins = await User.find({ role: 'Admin' });
+    const adminEmails = admins.map(u => u.email);
+
+    if (adminEmails.length === 0) return;
+
+    const mailOptions = {
+      from: `"AKIRA Security" <${process.env.EMAIL_USER}>`,
+      to: adminEmails,
+      subject: `🚨 Security Broadcast: ${action}`,
+      html: `
+        <div style="font-family: sans-serif; background: #0f172a; color: #fff; padding: 40px; border-radius: 20px;">
+          <h2 style="color: #ef4444;">AKIRA Governance Alert</h2>
+          <p>This is an automated broadcast to all system administrators.</p>
+          <div style="background: #1e293b; padding: 20px; border-radius: 12px; margin: 20px 0; border-left: 4px solid #ef4444;">
+             <strong>Action:</strong> ${action}<br/>
+             <strong>Details:</strong> User <b>${details.deletedUsername}</b> has been permanently removed.<br/>
+             <strong>Authorized By:</strong> ${details.actorUsername}<br/>
+             <strong>Timestamp:</strong> ${new Date().toLocaleString()}
+          </div>
+          <p style="font-size: 12px; color: #64748b;">If this action was unauthorized, initiate emergency containment protocols immediately.</p>
+        </div>
+      `
+    };
+
+    await transporter.sendMail(mailOptions);
+    console.log(`Broadcasted ${action} to ${adminEmails.length} admins.`);
+  } catch (err) {
+    console.error("Admin Notification Error:", err);
+  }
+};
+
 // DELETE /api/users/:id (Admin Only)
 export const deleteUser = async (req, res) => {
   try {
     const { id } = req.params;
+    const { sudoPassword } = req.body;
 
-    // 1. Prevent self-deletion
+    // 1. Sudo Re-Verification (Rubric: re-verification)
+    if (!sudoPassword) {
+      return res.status(401).json({ error: "Administrative authorization required. Please confirm your password." });
+    }
+
+    // Fetch the acting admin with passwordHash for verification
+    const actingAdmin = await User.findById(req.user.id);
+    const isValid = await argon2.verify(actingAdmin.passwordHash, sudoPassword);
+    if (!isValid) {
+      return res.status(403).json({ error: "Invalid administrative credentials. Deletion aborted." });
+    }
+
+    // 2. Prevent self-deletion
     if (req.user.id === id) {
       return res.status(400).json({ error: "Self-deletion is prohibited for security reasons." });
     }
@@ -208,13 +255,13 @@ export const deleteUser = async (req, res) => {
       return res.status(404).json({ error: "User not found." });
     }
 
-    // 2. Cascade Delete: Remove their API Keys
+    // 3. Cascade Delete: Remove their API Keys
     await APIKey.deleteMany({ owner: id });
 
-    // 3. Delete the User
+    // 4. Delete the User
     await User.findByIdAndDelete(id);
 
-    // 4. Audit Log
+    // 5. Audit Log
     const logEntry = {
       action: 'USER_DELETED',
       actor: req.user.id,
@@ -226,6 +273,12 @@ export const deleteUser = async (req, res) => {
     await AuditLog.create({
       ...logEntry,
       integritySignature: signData(logEntry, process.env.MASTER_KEY)
+    });
+
+    // 6. Broadcast to all Admins (Governance Requirement)
+    notifyAdmins('USER_REMOVED', {
+      deletedUsername: userToDelete.username,
+      actorUsername: actingAdmin.username
     });
 
     res.json({ success: true, message: `User ${userToDelete.username} and their assets have been removed.` });

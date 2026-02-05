@@ -20,6 +20,46 @@ const transporter = nodemailer.createTransport({
 // Store OTPs in memory
 export const otpStore = {};
 
+// Helper to initiate MFA (Generate OTP & Send Email)
+const initiateMfa = (user, statusCode, res) => {
+  const email = user.email;
+  const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+  otpStore[email] = {
+    code: otp,
+    expiresAt: Date.now() + 5 * 60 * 1000, // 5 Minutes
+    attempts: 0
+  };
+
+  console.log(`\n=== AKIRA MFA GATEWAY ===`);
+  console.log(`User: ${email}`);
+  console.log(`FAIL-SAFE OTP: ${otp}`);
+  console.log(`========================\n`);
+
+  const mailOptions = {
+    from: `"AKIRA Security" <${process.env.EMAIL_USER}>`,
+    to: email,
+    subject: '🔐 Your AKIRA Verification Code',
+    text: `Your Identity Verification Code is: ${otp}`
+  };
+
+  transporter.sendMail(mailOptions)
+    .then(() => console.log(`Email sent to ${email}`))
+    .catch((err) => console.log("Email failed, use Console OTP:", err.message));
+
+  res.status(statusCode).json({
+    success: true,
+    requireMfa: true,
+    message: 'OTP initiated for identity verification',
+    tempUser: {
+      username: user.username,
+      email: user.email,
+      role: user.role,
+      profilePicture: user.profilePicture
+    }
+  });
+};
+
 // Helper to set cookie and send response
 const sendTokenResponse = (user, statusCode, res) => {
   const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, {
@@ -58,11 +98,11 @@ export const register = async (req, res) => {
     const { username, email: rawEmail, password } = req.body;
     const email = String(rawEmail).toLowerCase();
 
-    // PASSWORD POLICY (Rubric Item: complexity)
-    const passwordRegex = /^(?=.*[0-9])(?=.*[!@#$%^&*])[a-zA-Z0-9!@#$%^&*]{8,}$/;
+    // PASSWORD POLICY (Enforce: 8+ chars, 1 Upper, 1 Lower, 1 Number, 1 Special)
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.*[!@#$%^&*_\-\.]).{8,}$/;
     if (!passwordRegex.test(password)) {
       return res.status(400).json({
-        error: 'Password must be at least 8 characters long and include at least one number and one special character (!@#$%^&*).'
+        error: 'Security Policy Violation: Password must be at least 8 characters long and include an Uppercase letter, a Lowercase letter, a Number, and a Special character (!@#$%^&*_-.).'
       });
     }
 
@@ -88,8 +128,8 @@ export const register = async (req, res) => {
       integritySignature: signData(logEntry, process.env.MASTER_KEY)
     });
 
-    console.log(`User Registered Successfully: ${email}`);
-    sendTokenResponse(newUser, 201, res);
+    console.log(`User Registered! Initiating Identity Verification for: ${email}`);
+    initiateMfa(newUser, 201, res);
   } catch (error) {
     console.error("Register Error:", error);
     res.status(500).json({ error: 'Registration failed' });
@@ -100,47 +140,15 @@ export const register = async (req, res) => {
 export const login = async (req, res) => {
   try {
     const { email: rawEmail, password } = req.body;
-    const email = String(rawEmail).toLowerCase(); // SECURITY FIX: NoSQL Injection Prevention
+    const email = String(rawEmail).toLowerCase();
     const user = await User.findOne({ email });
     if (!user) return res.status(404).json({ error: 'Account not found. Please register.' });
 
     const isMatch = await argon2.verify(user.passwordHash, password);
     if (!isMatch) return res.status(401).json({ error: 'Invalid credentials' });
 
-    // Generate OTP with Expiry and Attempt Counter (Rubric Item: timing & incorrect attempts)
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    otpStore[email] = {
-      code: otp,
-      expiresAt: Date.now() + 5 * 60 * 1000, // 5 Minutes
-      attempts: 0
-    };
-
-    console.log(`\n=== FAIL-SAFE OTP: ${otp} ===\n(Use this if email fails)\n`);
-
-    const mailOptions = {
-      from: `"AKIRA Security" <${process.env.EMAIL_USER}>`,
-      to: email,
-      subject: '🔐 Your AKIRA Access Code',
-      text: `Your Access Code is: ${otp}`
-    };
-
-    // DONT AWAIT (Don't let slow SMTP block the user)
-    transporter.sendMail(mailOptions)
-      .then(() => console.log(`Email sent to ${email}`))
-      .catch((err) => console.log("Email failed, use Console OTP:", err.message));
-
-    // Always return success so the frontend moves to MFA screen
-    res.json({
-      success: true,
-      message: 'OTP generated',
-      tempUser: {
-        username: user.username,
-        email: user.email,
-        role: user.role,
-        profilePicture: user.profilePicture
-      }
-    });
-
+    console.log(`Login Authorized! Initiating Identity Verification for: ${email}`);
+    initiateMfa(user, 200, res);
   } catch (error) {
     console.error("Login Error:", error);
     res.status(500).json({ error: 'Login Error' });
@@ -257,45 +265,11 @@ export const googleAccess = async (req, res) => {
       }
     }
 
-    // C. Generate OTP (Same logic as Login)
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    otpStore[email] = {
-      code: otp,
-      expiresAt: Date.now() + 5 * 60 * 1000, // 5 Minutes
-      attempts: 0
-    };
-
-    // FAIL-SAFE LOGGING
-    console.log(`\n=== FAIL-SAFE OTP: ${otp} ===\n`);
-
-    // D. Send Email (Fail-Safe)
-    const mailOptions = {
-      from: `"AKIRA Security" <${process.env.EMAIL_USER}>`,
-      to: email,
-      subject: '🔐 Your AKIRA Access Code',
-      html: `<h1>Your Google-Auth Code: ${otp}</h1>`
-    };
-
-    // DONT AWAIT (Don't let slow email block the user)
-    transporter.sendMail(mailOptions)
-      .then(() => console.log(`Google Auth Email sent to ${email}`))
-      .catch((err) => console.log("Email failed, use Console OTP:", err.message));
-
-    // E. Return Success
-    res.json({
-      success: true,
-      message: 'OTP sent',
-      tempUser: {
-        username: user.username,
-        email: user.email,
-        role: user.role,
-        profilePicture: user.profilePicture
-      }
-    });
-
+    console.log(`Google Auth Authorized! Initiating Identity Verification for: ${email}`);
+    initiateMfa(user, 200, res);
   } catch (error) {
     console.error("Google Auth Error:", error);
-    res.status(500).json({ error: 'Google Auth Failed' });
+    res.status(500).json({ success: false, error: 'Google Login Failed' });
   }
 };
 

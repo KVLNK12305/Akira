@@ -79,6 +79,10 @@ export function DashboardView({ user, keys, logs, onGenerateKey, onLogout, onDel
   // NOTIFICATION STATE
   const [notification, setNotification] = useState(null);
 
+  // ACCESS REQUEST STATE
+  const [accessRequests, setAccessRequests] = useState([]);
+  const [requestModal, setRequestModal] = useState({ isOpen: false });
+
   const notify = (msg, type = 'success') => {
     setNotification({ msg, type });
     setTimeout(() => setNotification(null), 3000);
@@ -123,12 +127,22 @@ export function DashboardView({ user, keys, logs, onGenerateKey, onLogout, onDel
     return () => clearInterval(interval);
   }, []);
 
-  // 👥 Fetch Users Effect (Only if Admin & on Matrix Tab)
+  // 👥 Fetch Users & Requests Effect (Only if Admin & on Matrix Tab)
   useEffect(() => {
     if (activeTab === 'matrix' && isStrictAdmin) {
       fetchUsers();
+      fetchAccessRequests();
     }
   }, [activeTab, isStrictAdmin]);
+
+  const fetchAccessRequests = async () => {
+    try {
+      const res = await api.get('/access/requests');
+      setAccessRequests(res.data);
+    } catch (err) {
+      console.error("Fetch requests failed:", err);
+    }
+  };
 
   // ----------------------------------------
   // 4. API HANDLERS
@@ -191,11 +205,13 @@ export function DashboardView({ user, keys, logs, onGenerateKey, onLogout, onDel
     setConfirmModal({
       isOpen: true,
       title: "Delete User Account?",
-      message: `Warning: This will permanently remove ${username}'s access and all associated API keys. This action is irreversible.`,
+      message: `Warning: This will permanently remove ${username}'s access and all associated API keys. Administrative re-verification required.`,
       isDestructive: true,
-      onConfirm: async () => {
+      needsSudo: true,
+      onConfirm: async (password) => {
         try {
-          const res = await api.delete(`/users/${userId}`);
+          // DELETE with body in Axios requires the 'data' property
+          const res = await api.delete(`/users/${userId}`, { data: { sudoPassword: password } });
           if (res.data.success) {
             setUserList(prev => prev.filter(u => u._id !== userId));
             notify(res.data.message, "success");
@@ -205,6 +221,31 @@ export function DashboardView({ user, keys, logs, onGenerateKey, onLogout, onDel
         }
       }
     });
+  };
+
+  const handleProcessRequest = async (requestId, status) => {
+    try {
+      const res = await api.put(`/access/request/${requestId}`, { status });
+      if (res.data.success) {
+        notify(`Request ${status.toLowerCase()} successfully`);
+        fetchAccessRequests();
+        if (status === 'APPROVED') fetchUsers(); // Refresh users to see role change
+      }
+    } catch (err) {
+      notify(err.response?.data?.error || "Processing failed", "error");
+    }
+  };
+
+  const handleSubmitAccessRequest = async (requestedRole, reason) => {
+    try {
+      const res = await api.post('/access/request', { requestedRole, reason });
+      if (res.data.success) {
+        notify(res.data.message);
+        setRequestModal({ isOpen: false });
+      }
+    } catch (err) {
+      notify(err.response?.data?.error || "Submission failed", "error");
+    }
   };
 
   const handleExportLogs = () => {
@@ -553,6 +594,27 @@ export function DashboardView({ user, keys, logs, onGenerateKey, onLogout, onDel
           {activeTab === 'keys' && (
             <div className="space-y-6 animate-[fade-in_0.3s]">
 
+              {/* ACCESS ELEVATION BANNER (For non-admins) */}
+              {!isStrictAdmin && (
+                <div className="p-6 rounded-2xl bg-gradient-to-r from-blue-900/20 to-slate-900 border border-blue-500/20 flex justify-between items-center shadow-lg group">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-xl bg-blue-500/10 flex items-center justify-center border border-blue-500/20 group-hover:scale-110 transition-transform">
+                      <Shield className="text-blue-400" size={24} />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold text-white tracking-tight">Need higher clearance?</h3>
+                      <p className="text-slate-400 text-sm">Apply for Auditor or Admin privileges to access forensic logs.</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setRequestModal({ isOpen: true })}
+                    className="bg-blue-600 hover:bg-blue-500 text-white font-bold px-6 py-2.5 rounded-xl text-sm transition-all shadow-lg shadow-blue-900/20 flex items-center gap-2 group"
+                  >
+                    Request Elevation <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
+                  </button>
+                </div>
+              )}
+
               {/* SECURITY FEATURE: NEW KEY DISPLAY (Shown after Generation or Rotation) */}
               {revealedKey && (
                 <div className="mb-6 p-4 border-l-4 border-emerald-500 bg-emerald-900/20 rounded-r-lg backdrop-blur-md animate-pulse">
@@ -603,10 +665,13 @@ export function DashboardView({ user, keys, logs, onGenerateKey, onLogout, onDel
                   <thead className="bg-slate-900/80 text-slate-500 uppercase font-mono text-xs">
                     <tr>
                       <th className="px-6 py-4">Key Fingerprint</th>
+                      {(user.role === "Admin" || user.role === "Auditor") && (
+                        <th className="px-6 py-4">Identity</th>
+                      )}
                       <th className="px-6 py-4">Encryption</th>
                       <th className="px-6 py-4">Status</th>
                       <th className="px-6 py-4">Created</th>
-                      <th className="px-6 py-4">Actions</th>
+                      {user.role !== "Auditor" && <th className="px-6 py-4">Actions</th>}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-800">
@@ -616,6 +681,12 @@ export function DashboardView({ user, keys, logs, onGenerateKey, onLogout, onDel
                           {k?.prefix && <span className="bg-emerald-500 text-black px-2 py-0.5 rounded text-xs font-bold mr-2">NEW</span>}
                           {k?.fingerprint || "****"}
                         </td>
+                        {(user.role === "Admin" || user.role === "Auditor") && (
+                          <td className="px-6 py-4 text-xs text-slate-400">
+                            <span className="text-white font-bold">{k.owner?.username}</span><br />
+                            {k.owner?.email}
+                          </td>
+                        )}
                         <td className="px-6 py-4 text-emerald-400 font-mono text-xs">
                           <span className="flex items-center gap-2"><Lock size={12} /> AES-256-CBC</span>
                         </td>
@@ -623,26 +694,28 @@ export function DashboardView({ user, keys, logs, onGenerateKey, onLogout, onDel
                           <span className="px-2 py-1 bg-emerald-500/10 text-emerald-400 text-xs rounded border border-emerald-500/20">Active</span>
                         </td>
                         <td className="px-6 py-4 text-slate-500 text-xs font-mono">{formatDate(k?.createdAt)}</td>
-                        <td className="px-6 py-4">
-                          <div className="flex gap-2">
-                            {/* RUST FEATURE: ROTATE BUTTON */}
-                            <button
-                              onClick={() => handleRotate(k.id)}
-                              className="bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-400 hover:text-yellow-300 p-2 rounded transition-colors flex items-center gap-1 text-xs border border-yellow-500/20"
-                              title="Rotate using Rust Engine"
-                            >
-                              <RefreshCw size={14} /> Rotate
-                            </button>
+                        {user.role !== "Auditor" && (
+                          <td className="px-6 py-4">
+                            <div className="flex gap-2">
+                              {/* RUST FEATURE: ROTATE BUTTON */}
+                              <button
+                                onClick={() => handleRotate(k.id)}
+                                className="bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-400 hover:text-yellow-300 p-2 rounded transition-colors flex items-center gap-1 text-xs border border-yellow-500/20"
+                                title="Rotate using Rust Engine"
+                              >
+                                <RefreshCw size={14} /> Rotate
+                              </button>
 
-                            {/* Delete Button (Existing) */}
-                            <button
-                              onClick={() => handleDeleteKey(k.id, k.name)}
-                              className="bg-red-500/10 hover:bg-red-500/20 text-red-400 hover:text-red-300 p-2 rounded transition-colors flex items-center gap-1 text-xs"
-                            >
-                              <Trash2 size={14} /> Delete
-                            </button>
-                          </div>
-                        </td>
+                              {/* Delete Button (Existing) */}
+                              <button
+                                onClick={() => handleDeleteKey(k.id, k.name)}
+                                className="bg-red-500/10 hover:bg-red-500/20 text-red-400 hover:text-red-300 p-2 rounded transition-colors flex items-center gap-1 text-xs"
+                              >
+                                <Trash2 size={14} /> Delete
+                              </button>
+                            </div>
+                          </td>
+                        )}
                       </tr>
                     ))}
                     {!keys || keys.length === 0 && (
@@ -747,48 +820,116 @@ export function DashboardView({ user, keys, logs, onGenerateKey, onLogout, onDel
                   <p className="text-slate-400 mt-2 max-w-md mx-auto">
                     Only Administrators can modify User Roles. Contact your System Admin to upgrade your privileges from <span className="text-white font-bold uppercase">{currentRole}</span>.
                   </p>
+                  <button
+                    onClick={() => setRequestModal({ isOpen: true })}
+                    className="mt-6 inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white font-bold px-8 py-3 rounded-full transition-all shadow-xl shadow-blue-900/20"
+                  >
+                    Apply for Elevation
+                  </button>
                 </div>
               ) : (
                 // ✅ ADMIN VIEW
-                <div className="bg-slate-900/50 border border-slate-800 rounded-2xl shadow-xl">
-                  <div className="p-6 border-b border-white/5 flex justify-between items-center">
-                    <div>
-                      <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                        <Users size={20} className="text-purple-400" />
-                        User Role Management
-                      </h3>
-                      <p className="text-slate-400 text-sm">Assign privileges to registered identities.</p>
+                <div className="space-y-8">
+                  {/* ACCESS REQUESTS SECTION */}
+                  {accessRequests.length > 0 && (
+                    <div className="bg-slate-900/50 border border-amber-500/20 rounded-2xl shadow-xl overflow-hidden animate-[fade-in_0.5s]">
+                      <div className="p-6 bg-amber-500/5 border-b border-amber-500/10 flex justify-between items-center">
+                        <div>
+                          <h3 className="text-lg font-bold text-amber-400 flex items-center gap-2">
+                            <Bell size={20} className="animate-bounce" /> Pending Governance Requests
+                          </h3>
+                        </div>
+                      </div>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead className="bg-black/20 text-slate-500 font-mono text-[10px] uppercase">
+                            <tr>
+                              <th className="px-6 py-4 text-left">Identity</th>
+                              <th className="px-6 py-4 text-left">Requesting</th>
+                              <th className="px-6 py-4 text-left">Internal Justification</th>
+                              <th className="px-6 py-4 text-right">Actions</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-white/5">
+                            {accessRequests.map(req => (
+                              <tr key={req._id} className="hover:bg-white/5 transition-colors">
+                                <td className="px-6 py-4">
+                                  <div className="font-bold text-white">{req.user?.username}</div>
+                                  <div className="text-[10px] text-slate-500">{req.user?.email}</div>
+                                </td>
+                                <td className="px-6 py-4">
+                                  <span className="bg-amber-500/10 text-amber-400 border border-amber-500/20 px-2 py-1 rounded text-xs font-bold uppercase">
+                                    {req.requestedRole}
+                                  </span>
+                                </td>
+                                <td className="px-6 py-4">
+                                  <p className="max-w-xs text-xs text-slate-400 italic">"{req.reason}"</p>
+                                </td>
+                                <td className="px-6 py-4 text-right">
+                                  <div className="flex gap-2 justify-end">
+                                    <button
+                                      onClick={() => handleProcessRequest(req._id, 'APPROVED')}
+                                      className="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-1.5 rounded-lg text-xs font-bold transition-all"
+                                    >
+                                      Approve
+                                    </button>
+                                    <button
+                                      onClick={() => handleProcessRequest(req._id, 'REJECTED')}
+                                      className="bg-red-600 hover:bg-red-500 text-white px-4 py-1.5 rounded-lg text-xs font-bold transition-all"
+                                    >
+                                      Reject
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
                     </div>
-                    <div className="text-xs font-mono text-slate-500 bg-black/40 px-3 py-1 rounded border border-slate-700">
-                      TOTAL USERS: {userList.length}
-                    </div>
-                  </div>
+                  )}
 
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm border-separate border-spacing-0">
-                      <thead className="bg-slate-800/80 backdrop-blur-md text-slate-400 font-mono text-[10px] uppercase tracking-widest">
-                        <tr>
-                          <th className="px-6 py-4 text-left font-bold border-b border-white/5">User Identity</th>
-                          <th className="px-6 py-4 text-left font-bold border-b border-white/5">Secure Email</th>
-                          <th className="px-6 py-4 text-left font-bold border-b border-white/5">Access Tier</th>
-                          <th className="px-6 py-4 text-right font-bold border-b border-white/5">Governance</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-white/5 bg-slate-900/40">
-                        {loadingUsers ? (
-                          <tr><td colSpan="4" className="p-8 text-center text-slate-500"><Activity className="animate-spin inline mr-2" /> Loading Users...</td></tr>
-                        ) : userList.map((u) => (
-                          // 🚀 USING USER ROW COMPONENT (Fixes Dropdown Issues)
-                          <UserRow
-                            key={u._id}
-                            userRow={u}
-                            currentUser={user}
-                            onRoleChange={handleRoleChange}
-                            onDeleteUser={handleUserDelete}
-                          />
-                        ))}
-                      </tbody>
-                    </table>
+                  {/* USER ROLE MANAGEMENT SECTION */}
+                  <div className="bg-slate-900/50 border border-slate-800 rounded-2xl shadow-xl overflow-hidden">
+                    <div className="p-6 border-b border-white/5 flex justify-between items-center">
+                      <div>
+                        <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                          <Users size={20} className="text-purple-400" />
+                          User Role Management
+                        </h3>
+                        <p className="text-slate-400 text-sm">Assign privileges to registered identities.</p>
+                      </div>
+                      <div className="text-xs font-mono text-slate-500 bg-black/40 px-3 py-1 rounded border border-slate-700">
+                        TOTAL USERS: {userList.length}
+                      </div>
+                    </div>
+
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm border-separate border-spacing-0">
+                        <thead className="bg-slate-800/80 backdrop-blur-md text-slate-400 font-mono text-[10px] uppercase tracking-widest">
+                          <tr>
+                            <th className="px-6 py-4 text-left font-bold border-b border-white/5">User Identity</th>
+                            <th className="px-6 py-4 text-left font-bold border-b border-white/5">Secure Email</th>
+                            <th className="px-6 py-4 text-left font-bold border-b border-white/5">Access Tier</th>
+                            <th className="px-6 py-4 text-right font-bold border-b border-white/5">Governance</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-white/5 bg-slate-900/40">
+                          {loadingUsers ? (
+                            <tr><td colSpan="4" className="p-8 text-center text-slate-500"><Activity className="animate-spin inline mr-2" /> Loading Users...</td></tr>
+                          ) : userList.map((u) => (
+                            // 🚀 USING USER ROW COMPONENT (Fixes Dropdown Issues)
+                            <UserRow
+                              key={u._id}
+                              userRow={u}
+                              currentUser={user}
+                              onRoleChange={handleRoleChange}
+                              onDeleteUser={handleUserDelete}
+                            />
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                 </div>
               )}
@@ -937,13 +1078,23 @@ export function DashboardView({ user, keys, logs, onGenerateKey, onLogout, onDel
 
       {/* 🛡️ SYSTEM OVERLAYS */}
       <ConfirmationModal
-        {...confirmModal}
-        onCancel={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+        isOpen={confirmModal.isOpen}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        isDestructive={confirmModal.isDestructive}
+        needsSudo={confirmModal.needsSudo}
+        onConfirm={confirmModal.onConfirm}
+        onCancel={() => setConfirmModal({ ...confirmModal, isOpen: false })}
       />
       <ExportOptionsModal
         {...exportModal}
         onCancel={() => setExportModal(prev => ({ ...prev, isOpen: false }))}
         onExport={handleExecuteExport}
+      />
+      <RequestAccessModal
+        isOpen={requestModal.isOpen}
+        onCancel={() => setRequestModal({ isOpen: false })}
+        onSubmit={handleSubmitAccessRequest}
       />
       {notification && <Toast {...notification} />}
     </div>
@@ -1128,7 +1279,9 @@ function RoleBadge({ role }) {
 }
 
 // 4. Custom Confirmation Modal
-function ConfirmationModal({ isOpen, title, message, onConfirm, onCancel, isDestructive }) {
+function ConfirmationModal({ isOpen, title, message, onConfirm, onCancel, isDestructive, needsSudo }) {
+  const [password, setPassword] = useState("");
+
   if (!isOpen) return null;
 
   return (
@@ -1142,7 +1295,22 @@ function ConfirmationModal({ isOpen, title, message, onConfirm, onCancel, isDest
           <AlertTriangle size={24} />
         </div>
         <h3 className="text-xl font-bold text-white mb-2">{title}</h3>
-        <p className="text-slate-400 text-sm leading-relaxed mb-8">{message}</p>
+        <p className="text-slate-400 text-sm leading-relaxed mb-6">{message}</p>
+
+        {needsSudo && (
+          <div className="mb-6 animate-[fade-in_0.3s]">
+            <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Confirm Administrator Password</label>
+            <input
+              type="password"
+              placeholder="••••••••"
+              value={password}
+              autoFocus
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:border-red-500/50 outline-none transition-all font-mono"
+            />
+          </div>
+        )}
+
         <div className="flex gap-3">
           <button
             onClick={onCancel}
@@ -1151,8 +1319,9 @@ function ConfirmationModal({ isOpen, title, message, onConfirm, onCancel, isDest
             Cancel
           </button>
           <button
-            onClick={() => { onConfirm(); onCancel(); }}
-            className={`flex-1 px-4 py-3 rounded-xl font-bold transition-all shadow-lg ${isDestructive ? 'bg-red-600 hover:bg-red-500 text-white shadow-red-900/20' : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-900/20'}`}
+            onClick={() => { onConfirm(needsSudo ? password : undefined); onCancel(); }}
+            disabled={needsSudo && !password}
+            className={`flex-1 px-4 py-3 rounded-xl font-bold transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed ${isDestructive ? 'bg-red-600 hover:bg-red-500 text-white shadow-red-900/20' : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-900/20'}`}
           >
             Confirm
           </button>
@@ -1257,6 +1426,61 @@ function ExportOptionsModal({ isOpen, loading, onCancel, onExport }) {
           <p className="text-[10px] text-center text-slate-600 uppercase font-mono tracking-widest">
             🛡️ All exports are cryptographically signed by AKIRA-CORE
           </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function RequestAccessModal({ isOpen, onCancel, onSubmit }) {
+  const [role, setRole] = useState("Auditor");
+  const [reason, setReason] = useState("");
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm animate-[fade-in_0.2s]" onClick={onCancel}></div>
+      <div className="relative w-full max-w-md bg-slate-900 border border-white/10 rounded-3xl p-8 shadow-2xl ring-1 ring-white/10 animate-[scale-in_0.2s]">
+        <div className="w-14 h-14 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center mb-6">
+          <Shield size={24} />
+        </div>
+        <h3 className="text-xl font-bold text-white mb-2">Request Elevation</h3>
+        <p className="text-slate-400 text-sm mb-6">Apply for higher clearance levels with administrative oversight.</p>
+
+        <div className="space-y-4 mb-8">
+          <div>
+            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Requested Privilege Level</label>
+            <select
+              value={role}
+              onChange={(e) => setRole(e.target.value)}
+              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:border-emerald-500 outline-none transition-all"
+            >
+              <option value="Auditor">Auditor (Forensic Data Access)</option>
+              <option value="Admin">Admin (Full System Control)</option>
+            </select>
+          </div>
+          <div>
+            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Business Grounds / Reason</label>
+            <textarea
+              placeholder="Why do you need this access? (min 10 chars)"
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              rows={4}
+              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:border-emerald-500 outline-none resize-none transition-all"
+            />
+          </div>
+        </div>
+
+        <div className="flex gap-3">
+          <button onClick={onCancel} className="flex-1 px-4 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold transition-all border border-slate-700">Cancel</button>
+          <button
+            onClick={() => onSubmit(role, reason)}
+            disabled={reason.length < 10}
+            className="flex-1 px-4 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold transition-all disabled:opacity-50 shadow-lg shadow-emerald-900/20"
+          >
+            Submit Request
+          </button>
         </div>
       </div>
     </div>

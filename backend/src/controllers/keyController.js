@@ -123,15 +123,23 @@ export const rotateKey = async (req, res) => {
   }
 };
 
-// @desc    Get all keys for user
+// @desc    Get all keys (Auditors/Admins see all, Users see theirs)
 // @route   GET /keys
 export const getMyKeys = async (req, res) => {
   try {
-    const keys = await APIKey.find({ owner: req.user.id });
+    const role = req.user.role?.toLowerCase();
+    const canSeeAll = ['admin', 'auditor', 'superadmin'].includes(role);
+
+    const query = canSeeAll ? {} : { owner: req.user.id };
+
+    const keys = await APIKey.find(query)
+      .populate('owner', 'username email')
+      .sort({ createdAt: -1 });
 
     res.json(keys.map(k => ({
       id: k._id,
       name: k.name,
+      owner: k.owner, // Included for Auditors to see who owns what
       fingerprint: k.keyFingerprint,
       scopes: k.scopes,
       status: k.isActive ? 'Active' : 'Revoked',

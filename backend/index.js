@@ -13,6 +13,7 @@ import keyRoutes from './src/routes/keyRoutes.js';
 import auditRoutes from './src/routes/auditRoutes.js';
 import dataRoutes from './src/routes/dataRoutes.js';
 import userRoutes from './src/routes/users.js';
+import accessRoutes from './src/routes/accessRoutes.js';
 
 dotenv.config();
 
@@ -76,6 +77,7 @@ app.use('/api/keys', keyRoutes);
 app.use('/api/audit-logs', auditRoutes);
 app.use('/api/v1', dataRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/access', accessRoutes);
 
 // 3. Health Check Route
 app.get('/', (req, res) => {
