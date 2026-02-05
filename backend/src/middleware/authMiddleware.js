@@ -5,24 +5,30 @@ import User from '../models/User.js';
 export const verifyToken = async (req, res, next) => {
   let token;
 
-  if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
-    try {
-      token = req.headers.authorization.split(' ')[1];
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+  // 1. Get token from Cookies (HttpOnly) or Authorization Header
+  if (req.cookies && req.cookies.token) {
+    token = req.cookies.token;
+  }
+  else if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
+    token = req.headers.authorization.split(' ')[1];
+  }
 
-      req.user = await User.findById(decoded.id).select('-passwordHash');
+  if (!token) {
+    return res.status(401).json({ error: 'Not authorized, session expired' });
+  }
 
-      if (!req.user) {
-        return res.status(401).json({ error: 'User not found' });
-      }
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = await User.findById(decoded.id).select('-passwordHash');
 
-      next();
-    } catch (error) {
-      console.error(error);
-      return res.status(401).json({ error: 'Not authorized' });
+    if (!req.user) {
+      return res.status(401).json({ error: 'User not found' });
     }
-  } else {
-    return res.status(401).json({ error: 'Not authorized, no token' });
+
+    next();
+  } catch (error) {
+    console.error("Auth Middleware Error:", error.message);
+    return res.status(401).json({ error: 'Invalid or expired session' });
   }
 };
 

@@ -25,9 +25,9 @@ export default function LoginView() {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!formData.email.trim() || !emailRegex.test(formData.email)) newErrors.email = "Valid email is required.";
     if (isRegister) {
-      const passRegex = /^(?=.*[A-Z])(?=.*[!@#$&*])(?=.*[0-9]).{8,}$/;
+      const passRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.*[!@#$%^&*_\-\.]).{8,}$/;
       if (!passRegex.test(formData.password)) {
-        newErrors.password = "Weak Password: Need 8+ chars, 1 Upper, 1 Number, 1 Special.";
+        newErrors.password = "Security Policy: Need 8+ chars, 1 Upper, 1 Lower, 1 Number, 1 Special (!@#$%^&*_-.).";
       }
     } else {
       if (!formData.password) newErrors.password = "Password is required.";

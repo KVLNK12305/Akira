@@ -20,7 +20,7 @@ export default function App() {
 }
 
 function MainLogic() {
-  const { user, token, tempEmail, logout, loading: authLoading } = useAuth();
+  const { user, tempEmail, logout, loading: authLoading } = useAuth();
   const [view, setView] = useState("hero");
 
   // Data State
@@ -30,11 +30,11 @@ function MainLogic() {
 
   // --- 1. SMART ROUTING LOGIC ---
   useEffect(() => {
-    // Wait for AuthContext to finish checking LocalStorage
+    // Wait for AuthContext to finish checking session cookie
     if (authLoading) return;
 
     // Case A: Fully Authenticated -> Go to Dashboard
-    if (token) {
+    if (user) {
       setView("dashboard");
       fetchDashboardData();
     }
@@ -45,16 +45,14 @@ function MainLogic() {
     // Case C: Logged out -> If currently on restricted pages, kick to Hero
     else {
       // 🛡️ SECURITY JANITOR: Completely Purge Sensitive Data on Logout
-      if (!token) {
-        setKeys([]);
-        setLogs([]);
-      }
+      setKeys([]);
+      setLogs([]);
 
       if (view === "dashboard" || view === "mfa" || view === "profile") {
         setView("hero");
       }
     }
-  }, [token, tempEmail, authLoading]);
+  }, [user, tempEmail, authLoading]);
 
   // --- 2. ROBUST DATA FETCHING ---
   const fetchDashboardData = async () => {

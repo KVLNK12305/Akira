@@ -5,40 +5,29 @@ const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
   // ⚡ STATE MANAGEMENT
-  // Initialize token directly from localStorage to prevent empty state on refresh
-  const [token, setToken] = useState(localStorage.getItem('token') || null);
   const [user, setUser] = useState(null);
   const [tempEmail, setTempEmail] = useState(null);
-
-  // ⏳ LOADING STATE (Crucial for fixing "Guest" bug)
-  // We won't render the app until we've checked if the user is logged in
   const [loading, setLoading] = useState(true);
 
   // 1. 🔄 REHYDRATE USER ON APP START
   useEffect(() => {
     const loadUser = async () => {
-      const storedToken = localStorage.getItem('token');
+      // CLEAR LEGACY TOKENS (SECURITY HARDENING)
+      localStorage.removeItem('token');
 
-      if (storedToken) {
-        // Set the header immediately so the request works
-        api.defaults.headers.common['Authorization'] = `Bearer ${storedToken}`;
+      try {
+        // 📡 Call /auth/me - Browser sends HttpOnly 'token' cookie automatically
+        const res = await api.get('/auth/me');
 
-        try {
-          // 📡 Call the endpoint we created to get user details
-          const res = await api.get('/auth/me');
-
-          if (res.data.success) {
-            console.log("✅ Session Restored:", res.data.user.username);
-            setUser(res.data.user);
-            setToken(storedToken);
-          }
-        } catch (error) {
-          console.error("⚠️ Session expired or invalid:", error.message);
-          // If token is bad, clear everything
-          logout();
+        if (res.data.success) {
+          console.log("✅ Secure Session Restored:", res.data.user.username);
+          setUser(res.data.user);
         }
+      } catch (error) {
+        // Not logged in or session expired - this is fine for initial load
+        console.log("ℹ️ No active secure session Found.");
       }
-      // Done checking, allow app to render
+
       setLoading(false);
     };
 
@@ -81,30 +70,35 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // 4. ✅ MFA SUCCESS HANDLER (Call this from MFAView)
+  // 4. ✅ MFA SUCCESS HANDLER
   const setAuthSuccess = (newToken, newUser) => {
-    localStorage.setItem('token', newToken);
-    api.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
-    setToken(newToken);
-    setUser(newUser);
+    // We ignore newToken now because it's handled by HttpOnly Cookie
+    setUser(newUser || newToken); // Handle cases where only 1 arg is passed if needed
   };
 
   // 5. LOGOUT
-  const logout = () => {
-    localStorage.removeItem('token');
-    delete api.defaults.headers.common['Authorization'];
-    setToken(null);
+  const logout = async () => {
+    try {
+      await api.get('/auth/logout');
+    } catch (err) {
+      console.error("Logout failed:", err);
+    }
     setUser(null);
     setTempEmail(null);
+    localStorage.removeItem('token');
   };
 
   // 6. REGISTER
   const register = async (username, email, password, role) => {
     try {
-      const res = await api.post('/auth/register', { username, email, password, role });
+      const normalizedEmail = email.toLowerCase();
+      const res = await api.post('/auth/register', { username, email: normalizedEmail, password, role });
 
-      // Auto-login after register
-      setAuthSuccess(res.data.token, res.data.user);
+      if (res.data.success && res.data.requireMfa) {
+        setTempEmail(normalizedEmail); // Save email for MFA step
+        return { success: true, requireMfa: true };
+      }
+
       return { success: true };
     } catch (error) {
       return { success: false, error: error.response?.data?.error || "Registration Failed" };
@@ -114,19 +108,17 @@ export const AuthProvider = ({ children }) => {
   return (
     <AuthContext.Provider value={{
       user,
-      token,
       tempEmail,
-      loading, // expose loading if you want a spinner in App.jsx
+      loading,
       login,
       googleLogin,
       logout,
       register,
-      setAuthSuccess, // Use this in MFAView instead of setToken
-      setToken, // Keep for backward compatibility if needed
+      setAuthSuccess,
       updateUser: (newData) => setUser(prev => ({ ...prev, ...newData }))
     }}>
       {/* 🛡️ THE GATEKEEPER: Don't render children until we know who you are */}
-      {!loading ? children : <div className="h-screen bg-slate-950 flex items-center justify-center text-emerald-500">Loading Secure Gateway...</div>}
+      {!loading ? children : <div className="h-screen bg-slate-950 flex items-center justify-center text-emerald-500 font-mono tracking-tighter">Authenticating Identity...</div>}
     </AuthContext.Provider>
   );
 };

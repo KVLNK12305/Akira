@@ -121,6 +121,16 @@ export default function ProfileView({ onBack, onLogout }) {
 
     const handleRequestOTP = async () => {
         if (!newPassword) return setPassMsg({ type: "error", text: "Enter a new password first" });
+
+        // CLIENT-SIDE VALIDATION
+        const passRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.*[!@#$%^&*_\-\.]).{8,}$/;
+        if (!passRegex.test(newPassword)) {
+            return setPassMsg({
+                type: "error",
+                text: "Security Policy: Need 8+ chars, 1 Upper, 1 Lower, 1 Number, 1 Special (!@#$%^&*_-.)."
+            });
+        }
+
         setIsLoading(true);
         setPassMsg({ type: "", text: "" });
 
