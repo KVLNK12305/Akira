@@ -44,7 +44,7 @@ AuditLogSchema.pre('findOneAndUpdate', function (next) {
 });
 
 AuditLogSchema.pre('updateOne', function (next) {
-  const err = new Error('⚠️ SECURITY VIOLATION: Audit Logs are immutable.');
+  const err = new Error('⚠️ SECURITY VIOLATION: Audit Logsu are immutable.');
   next(err);
 });
 

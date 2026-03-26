@@ -1,6 +1,6 @@
 import APIKey from '../models/APIKey.js';
 import AuditLog from '../models/AuditLog.js';
-import { generateAPIKey, encrypt, hashFingerprint, signData } from '../utils/crypto.js';
+import { generateAPIKey, encrypt, decrypt, hashFingerprint, signData } from '../utils/crypto.js';
 import { generateRustKey } from '../utils/rustEngine.js'; // Import Entropy Engine
 
 // @desc    Generate a new API Key (Standard Node.js)
@@ -136,6 +136,22 @@ export const getMyKeys = async (req, res) => {
       .populate('owner', 'username email')
       .sort({ createdAt: -1 });
 
+    // 🔓 DECRYPTION LOGGING (for debugging)
+    console.log('\n🔐 === DECRYPTION DEBUG LOGS ===');
+    keys.forEach((k, index) => {
+      try {
+        const encryptedData = `${k.iv}:${k.encryptedKey}`;
+        const decryptedKey = decrypt(encryptedData, process.env.MASTER_KEY);
+        console.log(`\n[Key ${index + 1}] ${k.name}`);
+        console.log(`  📦 Encrypted: ${k.encryptedKey.substring(0, 20)}...`);
+        console.log(`  🔑 Decrypted: ${decryptedKey}`);
+        console.log(`  🔍 Fingerprint: ${k.keyFingerprint.substring(0, 16)}...`);
+      } catch (err) {
+        console.log(`  ❌ Decryption failed for ${k.name}: ${err.message}`);
+      }
+    });
+    console.log('🔐 === END DECRYPTION LOGS ===\n');
+
     res.json(keys.map(k => ({
       id: k._id,
       name: k.name,
@@ -185,6 +201,62 @@ export const deleteKey = async (req, res) => {
     });
 
     res.json({ msg: "Key deleted successfully", keyId: id });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// @desc    Debug endpoint - View decrypted keys (DEV ONLY)
+// @route   GET /keys/debug/decrypted
+export const getDecryptedKeys = async (req, res) => {
+  try {
+    // ⚠️ WARNING: This endpoint exposes decrypted keys - USE ONLY IN DEVELOPMENT
+    if (process.env.NODE_ENV === 'production') {
+      return res.status(403).json({ error: 'This endpoint is disabled in production' });
+    }
+
+    const role = req.user.role?.toLowerCase();
+    const canSeeAll = ['admin', 'auditor', 'superadmin'].includes(role);
+
+    const query = canSeeAll ? {} : { owner: req.user.id };
+
+    const keys = await APIKey.find(query)
+      .populate('owner', 'username email')
+      .sort({ createdAt: -1 });
+
+    const decryptedKeys = keys.map(k => {
+      try {
+        const encryptedData = `${k.iv}:${k.encryptedKey}`;
+        const decryptedKey = decrypt(encryptedData, process.env.MASTER_KEY);
+        
+        console.log(`\n🔓 Decrypted: ${k.name}`);
+        console.log(`   Raw Key: ${decryptedKey}`);
+        
+        return {
+          id: k._id,
+          name: k.name,
+          owner: k.owner,
+          decryptedKey: decryptedKey,
+          encryptedKey: k.encryptedKey,
+          iv: k.iv,
+          fingerprint: k.keyFingerprint,
+          scopes: k.scopes,
+          status: k.isActive ? 'Active' : 'Revoked',
+          createdAt: k.createdAt
+        };
+      } catch (err) {
+        return {
+          id: k._id,
+          name: k.name,
+          error: `Decryption failed: ${err.message}`
+        };
+      }
+    });
+
+    res.json({
+      warning: '⚠️ This endpoint shows decrypted keys - for development only!',
+      keys: decryptedKeys
+    });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
