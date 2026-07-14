@@ -51,12 +51,12 @@ export default function LoginView() {
     if (!result.success) setErrors({ form: result.error });
   };
 
-  // 🚀 REAL GOOGLE OAUTH LOGIC
+  // 🚀 REAL GOOGLE OAUTH LOGIC (Hardened for Mobile & Desktop compatibility)
   const googleAuth = useGoogleLogin({
+    prompt: 'select_account', // CRITICAL: Forces account selector without relying on blocked mobile third-party iframes
     onSuccess: async (tokenResponse) => {
       setLoading(true);
       try {
-        // Fetch user info from Google
         const GOOGLE_USERINFO_URL = import.meta.env.VITE_GOOGLE_USERINFO_URL || 'https://www.googleapis.com/oauth2/v3/userinfo';
         const userInfo = await axios.get(
           GOOGLE_USERINFO_URL,
@@ -65,22 +65,28 @@ export default function LoginView() {
 
         const googleEmail = userInfo.data.email;
 
-        // Use our Context to Login/Register this email
         const result = await googleLogin(googleEmail, userInfo.data.picture, tokenResponse.access_token);
 
         if (!result.success) {
           setErrors({ form: "Auth Error: " + (result.error || "Please try again.") });
         }
       } catch (err) {
-        setErrors({ form: "Google API Connection Failed" });
+        console.error("Google API / Server error:", err);
+        setErrors({ form: "Google API Connection or Server Verification Failed" });
       } finally {
         setLoading(false);
       }
     },
-    onError: () => {
-      setErrors({ form: "Google Login Failed" });
+    onError: (err) => {
+      console.error("Google OAuth Error:", err);
+      setErrors({ form: "Google Login Failed. Please try again." });
       setLoading(false);
     },
+    onNonOAuthError: (err) => {
+      console.error("Google Non-OAuth Error (Popup closed/blocked):", err);
+      setErrors({ form: "Google Sign-In window was closed or blocked by mobile browser. Please allow popups or try standard login." });
+      setLoading(false);
+    }
   });
 
   if (bootSequence) {
