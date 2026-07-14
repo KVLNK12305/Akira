@@ -35,8 +35,8 @@ app.use(helmet({
       defaultSrc: ["'self'"],
       scriptSrc: ["'self'", "'unsafe-inline'"],
       styleSrc: ["'self'", "'unsafe-inline'"],
-      imgSrc: ["'self'", "data:", "http://localhost:5000"],
-      connectSrc: ["'self'", "http://localhost:5000"],
+      imgSrc: ["'self'", "data:", "http://localhost:5000", "http://localhost:5001", "https://*.onrender.com", "https://*.vercel.app"],
+      connectSrc: ["'self'", "http://localhost:5000", "http://localhost:5001", "https://*.onrender.com", "https://*.vercel.app"],
     },
   },
   crossOriginResourcePolicy: { policy: "cross-origin" }, // Allow images from backend
@@ -62,9 +62,23 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
-// CORS Configuration (Allow Frontend)
+// CORS Configuration (Allow Frontend & Vercel)
 app.use(cors({
-  origin: 'http://localhost:5173', // Vite Frontend
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true);
+    
+    const allowedOrigins = [
+      'http://localhost:5173',
+      'http://127.0.0.1:5173',
+      process.env.CORS_ORIGIN
+    ];
+    
+    if (allowedOrigins.includes(origin) || /^https:\/\/.*\.vercel\.app$/.test(origin) || /^https:\/\/.*\.onrender\.com$/.test(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true
 }));
 

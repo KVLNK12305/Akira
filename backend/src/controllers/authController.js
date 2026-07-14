@@ -4,6 +4,7 @@ import argon2 from 'argon2';
 import jwt from 'jsonwebtoken';
 import nodemailer from 'nodemailer';
 import { signData } from '../utils/crypto.js';
+import crypto from 'crypto';
 
 // Setup Email Transporter
 // 1. Using Port 587 (TLS) is less likely to be blocked than 465
@@ -23,7 +24,7 @@ export const otpStore = {};
 // Helper to initiate MFA (Generate OTP & Send Email)
 const initiateMfa = (user, statusCode, res) => {
   const email = user.email;
-  const otp = Math.floor(100000 + Math.random() * 900000).toString();
+  const otp = crypto.randomInt(100000, 1000000).toString();
 
   otpStore[email] = {
     code: otp,
@@ -31,10 +32,14 @@ const initiateMfa = (user, statusCode, res) => {
     attempts: 0
   };
 
-  console.log(`\n=== AKIRA MFA GATEWAY ===`);
-  console.log(`User: ${email}`);
-  console.log(`FAIL-SAFE OTP: ${otp}`);
-  console.log(`========================\n`);
+  if (process.env.NODE_ENV !== 'production') {
+    console.log(`\n=== AKIRA MFA GATEWAY (DEV ONLY) ===`);
+    console.log(`User: ${email}`);
+    console.log(`FAIL-SAFE OTP: ${otp}`);
+    console.log(`====================================\n`);
+  } else {
+    console.log(`[AUTH] MFA challenge initiated securely for ${email}`);
+  }
 
   const mailOptions = {
     from: `"AKIRA Security" <${process.env.EMAIL_USER}>`,
@@ -69,7 +74,7 @@ const sendTokenResponse = (user, statusCode, res) => {
   const options = {
     expires: new Date(Date.now() + 60 * 60 * 1000), // 1 hour
     httpOnly: true,
-    sameSite: 'lax',
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
     path: '/'
   };
 
@@ -231,11 +236,38 @@ export const verifyMFA = async (req, res) => {
   }
 };
 
-// 4. 🚀 GOOGLE ACCESS (The Fix for Existing Users)
+// 4. 🚀 GOOGLE ACCESS (Server-side Verified)
 export const googleAccess = async (req, res) => {
   try {
-    const { email: rawEmail, profilePicture } = req.body; // We trust this email from Google
+    const { email: rawEmail, profilePicture, accessToken } = req.body;
+    if (!rawEmail) {
+      return res.status(400).json({ success: false, error: 'Email is required' });
+    }
     const email = String(rawEmail).toLowerCase(); // SECURITY FIX: NoSQL Injection Prevention
+
+    // 🛡️ SECURITY HARDENING (TIFAC CORE REQUIREMENT):
+    // Verify token with Google's userinfo endpoint
+    if (accessToken) {
+      try {
+        const userInfoRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+          headers: { Authorization: `Bearer ${accessToken}` }
+        });
+        if (!userInfoRes.ok) {
+          return res.status(401).json({ success: false, error: 'Invalid Google OAuth Token' });
+        }
+        const googleData = await userInfoRes.json();
+        if (googleData.email.toLowerCase() !== email) {
+          return res.status(403).json({ success: false, error: 'OAuth Identity Mismatch: Spoofing attempt detected' });
+        }
+      } catch (verificationError) {
+        console.error("Google Server Verification Error:", verificationError);
+        if (process.env.NODE_ENV === 'production') {
+          return res.status(500).json({ success: false, error: 'Google OAuth Verification Engine Error' });
+        }
+      }
+    } else if (process.env.NODE_ENV === 'production') {
+      return res.status(401).json({ success: false, error: 'Missing OAuth Access Token for server-side verification' });
+    }
 
     // A. Check if user exists
     let user = await User.findOne({ email });

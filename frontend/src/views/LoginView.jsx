@@ -66,7 +66,7 @@ export default function LoginView() {
         const googleEmail = userInfo.data.email;
 
         // Use our Context to Login/Register this email
-        const result = await googleLogin(googleEmail, userInfo.data.picture);
+        const result = await googleLogin(googleEmail, userInfo.data.picture, tokenResponse.access_token);
 
         if (!result.success) {
           setErrors({ form: "Auth Error: " + (result.error || "Please try again.") });

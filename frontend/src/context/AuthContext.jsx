@@ -50,12 +50,12 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // 3. ⚡ SMART GOOGLE LOGIN
-  const googleLogin = async (googleEmail, profilePicture) => {
+  // 3. ⚡ SMART GOOGLE LOGIN (with Server-side OAuth Verification)
+  const googleLogin = async (googleEmail, profilePicture, accessToken) => {
     try {
       const normalizedEmail = googleEmail.toLowerCase();
       console.log(`🔍 Google Request for: ${normalizedEmail}`);
-      const res = await api.post('/auth/google', { email: normalizedEmail, profilePicture });
+      const res = await api.post('/auth/google', { email: normalizedEmail, profilePicture, accessToken });
 
       if (res.data.success) {
         setTempEmail(normalizedEmail);

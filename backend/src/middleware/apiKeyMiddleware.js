@@ -20,20 +20,21 @@ export const verifyApiKey = async (req, res, next) => {
     // 3. Find Key in DB
     const keyRecord = await APIKey.findOne({ keyFingerprint: incomingFingerprint });
 
-    if (!keyRecord || !keyRecord.isActive) {
+    if (!keyRecord || !keyRecord.isActive || new Date() > new Date(keyRecord.expiresAt)) {
+      const isExpired = keyRecord && new Date() > new Date(keyRecord.expiresAt);
       // LOG FAILURE (Security)
       const denialLog = {
         action: 'ACCESS_DENIED',
-        actorDisplay: 'Anonymous',
+        actorDisplay: keyRecord ? `Machine: ${keyRecord.name}` : 'Anonymous',
         ipAddress: req.ip,
-        details: { reason: 'Invalid or Revoked Key' }
+        details: { reason: isExpired ? 'API Key Expired' : 'Invalid or Revoked Key' }
       };
 
       await AuditLog.create({
         ...denialLog,
         integritySignature: signData(denialLog, process.env.MASTER_KEY)
       });
-      return res.status(401).json({ error: 'Invalid or Revoked API Key' });
+      return res.status(401).json({ error: isExpired ? 'API Key has expired' : 'Invalid or Revoked API Key' });
     }
 
     // 4. Attach Identity to Request

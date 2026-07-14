@@ -41,8 +41,12 @@ export const exportLogs = async (req, res) => {
       logs: allLogs
     };
 
+    if (!process.env.MASTER_KEY) {
+      throw new Error('FATAL: MASTER_KEY environment variable is missing for cryptographic signing');
+    }
+
     // 3. Sign the payload for integrity verification
-    const signature = signData(payload, process.env.MASTER_KEY || 'default_secret');
+    const signature = signData(payload, process.env.MASTER_KEY);
 
     const report = {
       ...payload,
@@ -66,7 +70,7 @@ export const exportLogs = async (req, res) => {
 
     const exportEvent = new AuditLog({
       ...exportLog,
-      integritySignature: signData(exportLog, process.env.MASTER_KEY || 'default_secret')
+      integritySignature: signData(exportLog, process.env.MASTER_KEY)
     });
     await exportEvent.save();
 
