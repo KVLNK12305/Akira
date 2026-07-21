@@ -21,8 +21,8 @@ AKIRA implements NIST-standard authentication for human administrators.
 ## 2. Machine Identity (The Data Plane)
 The core of AKIRA is managing high-entropy machine identities with military-grade encryption.
 
-### AES-256 Encryption
-- All API keys are encrypted at rest using AES-256-CBC (with an IV-per-entry strategy) and a hardware-secured MASTER_KEY.
+### AES-256-GCM Authenticated Encryption
+- All API keys are encrypted at rest using AES-256-GCM (with a 12-byte IV and 16-byte authentication tag per entry) and a hardware-secured MASTER_KEY.
 - **Fingerprinting**: Keys are indexed in the database via SHA-256 fingerprints, allowing for O(1) lookups during handshakes without decrypting every key in the vault.
 
 ### Rust Entropy Engine (Advanced Feature)

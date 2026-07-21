@@ -13,9 +13,9 @@ export const generateKey = async (req, res) => {
     // 1. GENERATE (Rubric: Key Gen)
     const rawKey = generateAPIKey();
 
-    // 2. ENCRYPT (AES-256-CBC)
+    // 2. ENCRYPT (AES-256-GCM)
     const encryptedData = encrypt(rawKey, process.env.MASTER_KEY);
-    const [iv, encryptedKey] = encryptedData.split(':');
+    const [iv, authTag, encryptedKey] = encryptedData.split(':');
 
     // 3. FINGERPRINT (Rubric: Hashing)
     const fingerprint = hashFingerprint(rawKey);
@@ -26,6 +26,7 @@ export const generateKey = async (req, res) => {
       name,
       encryptedKey,
       iv,
+      authTag,
       keyFingerprint: fingerprint,
       scopes: scopes || ['read:data'],
       expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 days
@@ -86,14 +87,15 @@ export const rotateKey = async (req, res) => {
       });
     }
 
-    // 3. Encrypt & Hash (Standard Procedure)
+    // 3. Encrypt & Hash (AES-256-GCM)
     const encryptedData = encrypt(newRawKey, process.env.MASTER_KEY);
-    const [iv, encryptedKey] = encryptedData.split(':');
+    const [iv, authTag, encryptedKey] = encryptedData.split(':');
     const fingerprint = hashFingerprint(newRawKey);
 
     // 4. Update DB (Revoke old secret, save new one)
     oldKey.encryptedKey = encryptedKey;
     oldKey.iv = iv;
+    oldKey.authTag = authTag;
     oldKey.keyFingerprint = fingerprint;
     oldKey.expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // Reset Expiry
     await oldKey.save();

@@ -688,7 +688,7 @@ export function DashboardView({ user, keys, logs, onGenerateKey, onLogout, onDel
                           </td>
                         )}
                         <td className="px-6 py-4 text-emerald-400 font-mono text-xs">
-                          <span className="flex items-center gap-2"><Lock size={12} /> AES-256-CBC</span>
+                          <span className="flex items-center gap-2"><Lock size={12} /> AES-256-GCM</span>
                         </td>
                         <td className="px-6 py-4">
                           <span className="px-2 py-1 bg-emerald-500/10 text-emerald-400 text-xs rounded border border-emerald-500/20">Active</span>

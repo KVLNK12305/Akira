@@ -4,9 +4,10 @@ const APIKeySchema = new mongoose.Schema({
   owner: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   name: { type: String, required: true },
 
-  // ENCRYPTION (Rubric Item)
+  // ENCRYPTION (Rubric Item: AES-256-GCM)
   encryptedKey: { type: String, required: true },
   iv: { type: String, required: true },
+  authTag: { type: String },
 
   // HASHING (Rubric Item)
   keyFingerprint: { type: String, required: true, index: true },

@@ -24,9 +24,9 @@ AKIRA implements a **Hybrid Identity Plane**, strictly separating human administ
 * **Traffic Control:** Global Rate Limiting to prevent brute-force and DDoS exploration.
 
 ### 2. The Data Plane (Machine Identity)
-* **Credential:** **AES-256-CBC** Encrypted API Keys.
+* **Credential:** **AES-256-GCM** Encrypted API Keys (AEAD).
 * **Storage:** Keys are **never** stored in plaintext.
-    * **DB Storage:** `AES-256-CBC(Key)` + `SHA-256(Fingerprint)`.
+    * **DB Storage:** `AES-256-GCM(Key)` (`IV` + `AuthTag` + `Ciphertext`) + `SHA-256(Fingerprint)`.
 * **Transmission:** Base64 Encoded Bearer Tokens with `akira_` prefix.
 * **Guardian Eye (NHI Lab):** Real-time machine handshake tracing and protocol verification.
 
@@ -94,7 +94,7 @@ pnpm dev
 3. **Display:** Shown **ONCE** to the user.
 
 ### B. Secure Vault
-1. **Ciphertext:** Encrypted using **AES-256-CBC** with a hardware-secured `MASTER_KEY`.
+1. **Ciphertext:** Encrypted using **AES-256-GCM** (with 12-byte IV and 16-byte AuthTag) and a hardware-secured `MASTER_KEY`.
 2. **Fingerprint:** A `SHA-256` hash for indexed O(1) lookups during the handshake.
 
 ### C. Digital Signatures (Audit)

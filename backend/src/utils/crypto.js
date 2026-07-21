@@ -1,7 +1,7 @@
 import crypto from 'crypto';
 
 // CONFIGURATION
-const ALGORITHM = 'aes-256-cbc';
+const ALGORITHM = 'aes-256-gcm';
 const ENCODING = 'hex';
 const HMAC_ALGO = 'sha256';
 
@@ -11,29 +11,33 @@ export const generateAPIKey = () => {
   return 'akira_' + buffer.toString('base64url');
 };
 
-// 2. ENCRYPTION
+// 2. ENCRYPTION (AES-256-GCM)
 export const encrypt = (text, masterKey) => {
-  const iv = crypto.randomBytes(16);
+  const iv = crypto.randomBytes(12); // NIST SP 800-38D recommended 12 bytes for GCM
   const cipher = crypto.createCipheriv(ALGORITHM, Buffer.from(masterKey, 'hex'), iv);
 
-  let encrypted = cipher.update(text);
-  encrypted = Buffer.concat([encrypted, cipher.final()]);
+  let encrypted = cipher.update(text, 'utf8', ENCODING);
+  encrypted += cipher.final(ENCODING);
 
-  return iv.toString('hex') + ':' + encrypted.toString('hex');
+  const authTag = cipher.getAuthTag().toString(ENCODING);
+
+  return `${iv.toString(ENCODING)}:${authTag}:${encrypted}`;
 };
 
-// 3. DECRYPTION
+// 3. DECRYPTION (AES-256-GCM)
 export const decrypt = (text, masterKey) => {
   const textParts = text.split(':');
-  const iv = Buffer.from(textParts.shift(), 'hex');
-  const encryptedText = Buffer.from(textParts.join(':'), 'hex');
+  const iv = Buffer.from(textParts.shift(), ENCODING);
+  const authTag = Buffer.from(textParts.shift(), ENCODING);
+  const encryptedText = Buffer.from(textParts.join(':'), ENCODING);
 
   const decipher = crypto.createDecipheriv(ALGORITHM, Buffer.from(masterKey, 'hex'), iv);
+  decipher.setAuthTag(authTag);
 
-  let decrypted = decipher.update(encryptedText);
-  decrypted = Buffer.concat([decrypted, decipher.final()]);
+  let decrypted = decipher.update(encryptedText, ENCODING, 'utf8');
+  decrypted += decipher.final('utf8');
 
-  return decrypted.toString();
+  return decrypted;
 };
 
 // 4. HASHING / FINGERPRINTING
