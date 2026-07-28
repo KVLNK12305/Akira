@@ -14,11 +14,48 @@ const transporter = nodemailer.createTransport({
 });
 
 export const sendEmail = async ({ to, subject, text, html }) => {
-  const from = process.env.EMAIL_FROM || 'onboarding@resend.dev';
-  const recipientList = Array.isArray(to) ? to : [to];
+  // 1. BREVO HTTP API (Works for ANY recipient email address without domain verification)
+  if (process.env.BREVO_API_KEY) {
+    try {
+      const senderEmail = process.env.EMAIL_USER || 'kls2edmentre@gmail.com';
+      const senderName = 'AKIRA Security';
+      const recipients = (Array.isArray(to) ? to : [to]).map(e => ({ email: e }));
 
+      const res = await fetch('https://api.brevo.com/v3/smtp/email', {
+        method: 'POST',
+        headers: {
+          'api-key': process.env.BREVO_API_KEY,
+          'Content-Type': 'application/json',
+          'accept': 'application/json'
+        },
+        body: JSON.stringify({
+          sender: { name: senderName, email: senderEmail },
+          to: recipients,
+          subject,
+          textContent: text,
+          htmlContent: html || `<p>${text}</p>`
+        })
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        console.error("Brevo API Error:", data);
+        throw new Error(data.message || JSON.stringify(data));
+      }
+
+      return { success: true, data };
+    } catch (err) {
+      console.error("Brevo HTTP Email failed:", err.message);
+      throw err;
+    }
+  }
+
+  // 2. RESEND API
   if (resendClient) {
     try {
+      const from = process.env.EMAIL_FROM || 'onboarding@resend.dev';
+      const recipientList = Array.isArray(to) ? to : [to];
+
       const { data, error } = await resendClient.emails.send({
         from,
         to: recipientList,
@@ -39,7 +76,7 @@ export const sendEmail = async ({ to, subject, text, html }) => {
     }
   }
 
-  // Fallback to Nodemailer SMTP (local dev)
+  // 3. FALLBACK TO NODEMAILER SMTP (local dev)
   try {
     const info = await transporter.sendMail({
       from: `"AKIRA Security" <${process.env.EMAIL_USER || 'no-reply@akira.sec'}>`,
