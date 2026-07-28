@@ -14,27 +14,28 @@ const transporter = nodemailer.createTransport({
 });
 
 export const sendEmail = async ({ to, subject, text, html }) => {
-  const from = process.env.EMAIL_FROM || 'AKIRA Security <onboarding@resend.dev>';
+  const from = process.env.EMAIL_FROM || 'onboarding@resend.dev';
+  const recipientList = Array.isArray(to) ? to : [to];
 
   if (resendClient) {
     try {
-      const response = await resendClient.emails.send({
+      const { data, error } = await resendClient.emails.send({
         from,
-        to,
+        to: recipientList,
         subject,
         text,
-        html
+        html: html || `<p>${text}</p>`
       });
 
-      if (response.error) {
-        console.error("Resend API Error:", response.error.message || response.error);
-        throw new Error(response.error.message || "Resend API Error");
+      if (error) {
+        console.error("Resend API Error:", error);
+        throw new Error(typeof error === 'object' ? JSON.stringify(error) : error);
       }
 
-      return { success: true, data: response.data };
-    } catch (error) {
-      console.error("Resend HTTP Email failed:", error.message);
-      throw error;
+      return { success: true, data };
+    } catch (err) {
+      console.error("Resend HTTP Email failed:", err.message);
+      throw err;
     }
   }
 
@@ -48,8 +49,8 @@ export const sendEmail = async ({ to, subject, text, html }) => {
       html
     });
     return { success: true, info };
-  } catch (error) {
-    console.error("SMTP Email failed:", error.message);
-    throw error;
+  } catch (err) {
+    console.error("SMTP Email failed:", err.message);
+    throw err;
   }
 };
