@@ -27,7 +27,7 @@ const initiateMfa = (user, statusCode, res) => {
     console.log(`FAIL-SAFE OTP: ${otp}`);
     console.log(`====================================\n`);
   } else {
-    console.log(`[AUTH] MFA challenge initiated securely for ${email}`);
+    console.log(`[AUTH] MFA challenge initiated for ${email}`);
   }
 
   sendEmail({
@@ -35,8 +35,14 @@ const initiateMfa = (user, statusCode, res) => {
     subject: '🔐 Your AKIRA Verification Code',
     text: `Your Identity Verification Code is: ${otp}`
   })
-    .then(() => console.log(`Email sent to ${email}`))
-    .catch((err) => console.log("Email delivery failed:", err.message));
+    .then(() => console.log(`✅ Email sent successfully to ${email}`))
+    .catch((err) => {
+      console.error(`⚠️ Email delivery failed (${err.message}).`);
+      console.log(`\n=== AKIRA MFA GATEWAY (FAIL-SAFE) ===`);
+      console.log(`User: ${email}`);
+      console.log(`FAIL-SAFE OTP: ${otp}`);
+      console.log(`=====================================\n`);
+    });
 
   res.status(statusCode).json({
     success: true,

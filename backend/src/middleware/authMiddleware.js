@@ -3,33 +3,39 @@ import User from '../models/User.js';
 
 // 1. The Main Middleware Function
 export const verifyToken = async (req, res, next) => {
-  let token;
+  const candidates = [];
 
-  // 1. Get token from Cookies (HttpOnly) or Authorization Header
-  if (req.cookies && req.cookies.token) {
-    token = req.cookies.token;
-  }
-  else if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
-    token = req.headers.authorization.split(' ')[1];
+  // Candidate 1: Authorization Header (Bearer token)
+  if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
+    const bearerToken = req.headers.authorization.split(' ')[1];
+    if (bearerToken && bearerToken !== 'none' && bearerToken !== 'null' && bearerToken !== 'undefined') {
+      candidates.push(bearerToken);
+    }
   }
 
-  if (!token) {
+  // Candidate 2: Cookie token
+  if (req.cookies && req.cookies.token && req.cookies.token !== 'none') {
+    candidates.push(req.cookies.token);
+  }
+
+  if (candidates.length === 0) {
     return res.status(401).json({ error: 'Not authorized, session expired' });
   }
 
-  try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = await User.findById(decoded.id).select('-passwordHash');
-
-    if (!req.user) {
-      return res.status(401).json({ error: 'User not found' });
+  for (const token of candidates) {
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      const user = await User.findById(decoded.id).select('-passwordHash');
+      if (user) {
+        req.user = user;
+        return next();
+      }
+    } catch (error) {
+      // Continue to next candidate if any
     }
-
-    next();
-  } catch (error) {
-    console.error("Auth Middleware Error:", error.message);
-    return res.status(401).json({ error: 'Invalid or expired session' });
   }
+
+  return res.status(401).json({ error: 'Invalid or expired session' });
 };
 
 // 2. ⚡ ALIAS: Export 'protect' as an alias for 'verifyToken'

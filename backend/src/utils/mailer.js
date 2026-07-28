@@ -18,14 +18,20 @@ export const sendEmail = async ({ to, subject, text, html }) => {
 
   if (resendClient) {
     try {
-      const data = await resendClient.emails.send({
+      const response = await resendClient.emails.send({
         from,
         to,
         subject,
         text,
         html
       });
-      return { success: true, data };
+
+      if (response.error) {
+        console.error("Resend API Error:", response.error.message || response.error);
+        throw new Error(response.error.message || "Resend API Error");
+      }
+
+      return { success: true, data: response.data };
     } catch (error) {
       console.error("Resend HTTP Email failed:", error.message);
       throw error;
