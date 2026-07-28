@@ -2,17 +2,7 @@ import AccessRequest from '../models/AccessRequest.js';
 import User from '../models/User.js';
 import AuditLog from '../models/AuditLog.js';
 import { signData } from '../utils/crypto.js';
-import nodemailer from 'nodemailer';
-
-const transporter = nodemailer.createTransport({
-    host: 'smtp.gmail.com',
-    port: 587,
-    secure: false,
-    auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS
-    }
-});
+import { sendEmail } from '../utils/mailer.js';
 
 // @desc    Submit a new access request
 // @route   POST /api/access/request
@@ -57,7 +47,11 @@ export const submitRequest = async (req, res) => {
           </div>
         `
             };
-            transporter.sendMail(mailOptions).catch(err => console.error("Request Notify Error:", err));
+            sendEmail({
+                to: adminEmails,
+                subject: mailOptions.subject,
+                html: mailOptions.html
+            }).catch(err => console.error("Request Notify Error:", err));
         }
 
         res.status(201).json({ success: true, message: "Request submitted successfully. Admins have been notified." });

@@ -1,21 +1,10 @@
 import User from '../models/User.js';
 import APIKey from '../models/APIKey.js';
 import AuditLog from '../models/AuditLog.js';
-import nodemailer from 'nodemailer'; // Import nodemailer
+import { sendEmail } from '../utils/mailer.js';
 import argon2 from 'argon2';
 import { otpStore } from './authController.js';
 import { signData } from '../utils/crypto.js';
-
-// 🟢 Setup Email Transporter (Reusing your config)
-const transporter = nodemailer.createTransport({
-  host: 'smtp.gmail.com',
-  port: 587,
-  secure: false, // Must be false for port 587
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS
-  }
-});
 
 // GET /api/users (Admin Only)
 export const getAllUsers = async (req, res) => {
@@ -70,7 +59,11 @@ export const updateUserRole = async (req, res) => {
     };
 
     // Send asynchronously (don't wait for it to return response)
-    transporter.sendMail(mailOptions).catch(err => console.error("⚠️ Email failed:", err.message));
+    sendEmail({
+      to: user.email,
+      subject: mailOptions.subject,
+      html: mailOptions.html
+    }).catch(err => console.error("⚠️ Email failed:", err.message));
 
     // Return success immediately
     res.json({ success: true, user: updatedUser, message: "Role updated & Email sent" });
@@ -127,7 +120,11 @@ export const requestPasswordChange = async (req, res) => {
     };
 
     try {
-      await transporter.sendMail(mailOptions);
+      await sendEmail({
+        to: user.email,
+        subject: mailOptions.subject,
+        text: mailOptions.text
+      });
     } catch (err) {
       console.error("⚠️ Email failed:", err.message);
     }
@@ -220,7 +217,11 @@ const notifyAdmins = async (action, details) => {
       `
     };
 
-    await transporter.sendMail(mailOptions);
+    await sendEmail({
+      to: adminEmails,
+      subject: mailOptions.subject,
+      html: mailOptions.html
+    });
     console.log(`Broadcasted ${action} to ${adminEmails.length} admins.`);
   } catch (err) {
     console.error("Admin Notification Error:", err);

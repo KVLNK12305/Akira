@@ -2,21 +2,9 @@ import User from '../models/User.js';
 import AuditLog from '../models/AuditLog.js';
 import argon2 from 'argon2';
 import jwt from 'jsonwebtoken';
-import nodemailer from 'nodemailer';
+import { sendEmail } from '../utils/mailer.js';
 import { signData } from '../utils/crypto.js';
 import crypto from 'crypto';
-
-// Setup Email Transporter
-// 1. Using Port 587 (TLS) is less likely to be blocked than 465
-const transporter = nodemailer.createTransport({
-  host: 'smtp.gmail.com',
-  port: 587,
-  secure: false, // Must be false for port 587
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS
-  }
-});
 
 // Store OTPs in memory
 export const otpStore = {};
@@ -32,7 +20,8 @@ const initiateMfa = (user, statusCode, res) => {
     attempts: 0
   };
 
-  if (process.env.NODE_ENV !== 'production') {
+  const isDev = process.env.NODE_ENV !== 'production' && !process.env.RENDER;
+  if (isDev) {
     console.log(`\n=== AKIRA MFA GATEWAY (DEV ONLY) ===`);
     console.log(`User: ${email}`);
     console.log(`FAIL-SAFE OTP: ${otp}`);
@@ -41,16 +30,13 @@ const initiateMfa = (user, statusCode, res) => {
     console.log(`[AUTH] MFA challenge initiated securely for ${email}`);
   }
 
-  const mailOptions = {
-    from: `"AKIRA Security" <${process.env.EMAIL_USER}>`,
+  sendEmail({
     to: email,
     subject: '🔐 Your AKIRA Verification Code',
     text: `Your Identity Verification Code is: ${otp}`
-  };
-
-  transporter.sendMail(mailOptions)
+  })
     .then(() => console.log(`Email sent to ${email}`))
-    .catch((err) => console.log("Email failed, use Console OTP:", err.message));
+    .catch((err) => console.log("Email delivery failed:", err.message));
 
   res.status(statusCode).json({
     success: true,
