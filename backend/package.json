@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "bun --watch index.js",
     "build": "cd native_core && cargo build --release",
+    "postinstall": "bun run build",
     "start": "bun index.js"
   },
   "dependencies": {

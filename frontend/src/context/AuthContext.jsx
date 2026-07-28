@@ -42,6 +42,7 @@ export const AuthProvider = ({ children }) => {
 
       if (res.data.success) {
         setTempEmail(normalizedEmail); // Save email for MFA step
+        localStorage.setItem('temp_email', normalizedEmail);
         return { success: true, requireMfa: true };
       }
     } catch (error) {
@@ -58,7 +59,8 @@ export const AuthProvider = ({ children }) => {
       const res = await api.post('/auth/google', { email: normalizedEmail, profilePicture, accessToken });
 
       if (res.data.success) {
-        setTempEmail(normalizedEmail);
+        setTempEmail(normalizedEmail); // Save email for MFA step
+        localStorage.setItem('temp_email', normalizedEmail);
         return { success: true, requireMfa: true };
       }
     } catch (error) {
