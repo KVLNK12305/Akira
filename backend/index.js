@@ -22,6 +22,7 @@ const __dirname = path.dirname(__filename);
 
 // Initialize App
 const app = express();
+app.set('trust proxy', 1); // Trust reverse proxy to correctly get client IP
 const PORT = process.env.PORT || 5000;
 
 // 1. Connect to Database
