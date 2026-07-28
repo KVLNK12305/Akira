@@ -17,7 +17,7 @@ export const sendEmail = async ({ to, subject, text, html }) => {
   // 1. BREVO HTTP API (Works for ANY recipient email address without domain verification)
   if (process.env.BREVO_API_KEY) {
     try {
-      const senderEmail = process.env.EMAIL_USER || 'kls2edmentre@gmail.com';
+      const senderEmail = process.env.BREVO_SENDER_EMAIL || 'kls2edmentre@gmail.com';
       const senderName = 'AKIRA Security';
       const recipients = (Array.isArray(to) ? to : [to]).map(e => ({ email: e }));
 
@@ -43,6 +43,7 @@ export const sendEmail = async ({ to, subject, text, html }) => {
         throw new Error(data.message || JSON.stringify(data));
       }
 
+      console.log("📨 Brevo Email Accepted by Server:", JSON.stringify(data));
       return { success: true, data };
     } catch (err) {
       console.error("Brevo HTTP Email failed:", err.message);
