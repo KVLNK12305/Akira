@@ -12,11 +12,8 @@ export const AuthProvider = ({ children }) => {
   // 1. 🔄 REHYDRATE USER ON APP START
   useEffect(() => {
     const loadUser = async () => {
-      // CLEAR LEGACY TOKENS (SECURITY HARDENING)
-      localStorage.removeItem('token');
-
       try {
-        // 📡 Call /auth/me - Browser sends HttpOnly 'token' cookie automatically
+        // 📡 Call /auth/me - Browser sends Cookie AND Bearer header if available
         const res = await api.get('/auth/me');
 
         if (res.data.success) {
@@ -74,8 +71,10 @@ export const AuthProvider = ({ children }) => {
 
   // 4. ✅ MFA SUCCESS HANDLER
   const setAuthSuccess = (newToken, newUser) => {
-    // We ignore newToken now because it's handled by HttpOnly Cookie
-    setUser(newUser || newToken); // Handle cases where only 1 arg is passed if needed
+    if (newToken) {
+      localStorage.setItem('token', newToken);
+    }
+    setUser(newUser || newToken);
   };
 
   // 5. LOGOUT

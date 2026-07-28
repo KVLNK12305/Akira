@@ -25,6 +25,10 @@ const api = axios.create({
 // We no longer manually inject tokens!
 // withCredentials: true (line 11) ensures the browser sends the HttpOnly cookie automatically.
 api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
   return config;
 }, (error) => {
   return Promise.reject(error);
