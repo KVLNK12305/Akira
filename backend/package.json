@@ -5,7 +5,7 @@
   "private": true,
   "scripts": {
     "dev": "bun --watch index.js",
-    "build": "cd native_core && cargo build --release",
+    "build": "if ! command -v cargo; then curl https://sh.rustup.rs -sSf | sh -s -- -y; fi && export PATH=\"$HOME/.cargo/bin:$PATH\" && cd native_core && cargo build --release",
     "postinstall": "bun run build",
     "start": "bun index.js"
   },
