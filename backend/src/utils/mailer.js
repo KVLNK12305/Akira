@@ -1,19 +1,47 @@
 import { Resend } from 'resend';
 import nodemailer from 'nodemailer';
 
-const resendClient = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
+// NOTE: Do NOT initialize clients at module top-level!
+// ES module imports are evaluated BEFORE dotenv.config() runs in index.js,
+// so process.env.* would be undefined here. All env reads are lazy (inside sendEmail).
+let _resendClient = null;
+let _transporter = null;
 
-const transporter = nodemailer.createTransport({
-  host: 'smtp.gmail.com',
-  port: 587,
-  secure: false,
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS
+const getResendClient = () => {
+  if (!_resendClient && process.env.RESEND_API_KEY) {
+    _resendClient = new Resend(process.env.RESEND_API_KEY);
   }
-});
+  return _resendClient;
+};
+
+const getTransporter = () => {
+  if (!_transporter && process.env.EMAIL_USER) {
+    _transporter = nodemailer.createTransport({
+      host: 'smtp.gmail.com',
+      port: 587,
+      secure: false,
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS
+      }
+    });
+  }
+  return _transporter;
+};
 
 export const sendEmail = async ({ to, subject, text, html }) => {
+  // Debug: log which provider will be used
+  const provider = process.env.BREVO_API_KEY ? 'Brevo' :
+                   process.env.RESEND_API_KEY ? 'Resend' :
+                   process.env.EMAIL_USER ? 'Nodemailer SMTP' : 'NONE';
+  console.log(`[Mailer] Sending to ${Array.isArray(to) ? to.join(', ') : to} via ${provider}`);
+
+  if (provider === 'NONE') {
+    const err = new Error('No email provider configured. Set BREVO_API_KEY, RESEND_API_KEY, or EMAIL_USER/EMAIL_PASS.');
+    console.error('[Mailer]', err.message);
+    throw err;
+  }
+
   // 1. BREVO HTTP API (Works for ANY recipient email address without domain verification)
   if (process.env.BREVO_API_KEY) {
     try {
@@ -52,6 +80,7 @@ export const sendEmail = async ({ to, subject, text, html }) => {
   }
 
   // 2. RESEND API
+  const resendClient = getResendClient();
   if (resendClient) {
     try {
       const from = process.env.EMAIL_FROM || 'onboarding@resend.dev';
@@ -78,6 +107,10 @@ export const sendEmail = async ({ to, subject, text, html }) => {
   }
 
   // 3. FALLBACK TO NODEMAILER SMTP (local dev)
+  const transporter = getTransporter();
+  if (!transporter) {
+    throw new Error('Nodemailer SMTP not configured: EMAIL_USER is missing.');
+  }
   try {
     const info = await transporter.sendMail({
       from: `"AKIRA Security" <${process.env.EMAIL_USER || 'no-reply@akira.sec'}>`,
