@@ -22,6 +22,10 @@ try {
     free_akira_key: {
       args: ["ptr"],     
       returns: "void"    
+    },
+    secure_attest: {
+      args: ["cstring", "cstring", "cstring", "cstring", "cstring"],
+      returns: "cstring"
     }
   });
   rust = lib.symbols;
@@ -46,4 +50,20 @@ export const generateRustKey = () => {
   // rust.free_akira_key(rawKey); 
   
   return jsString;
+};
+
+export const secureAttest = (encryptedHex, ivHex, authTagHex, masterKeyHex, expectedFingerprintHex) => {
+  if (!rust) {
+    throw new Error("Rust Engine is not loaded. Cannot perform secure attestation.");
+  }
+
+  const result = rust.secure_attest(
+    Buffer.from(encryptedHex + '\0'),
+    Buffer.from(ivHex + '\0'),
+    Buffer.from(authTagHex + '\0'),
+    Buffer.from(masterKeyHex + '\0'),
+    Buffer.from(expectedFingerprintHex + '\0')
+  );
+
+  return result.toString(); // "MATCH", "NO_MATCH", or "DECRYPT_FAILED"
 };

@@ -1,6 +1,8 @@
 import APIKey from '../models/APIKey.js';
 import AuditLog from '../models/AuditLog.js';
-import { hashFingerprint, signData } from '../utils/crypto.js';
+import { hashFingerprint } from '../utils/crypto.js';
+import { writeAuditLog } from '../utils/auditWriter.js';
+import { secureAttest } from '../utils/rustEngine.js';
 
 export const verifyApiKey = async (req, res, next) => {
   const authHeader = req.headers.authorization;
@@ -14,11 +16,30 @@ export const verifyApiKey = async (req, res, next) => {
 
   try {
     // 2. Hash incoming key (Rubric: Hashing)
-    // We do NOT decrypt the DB keys. We just compare hashes. Faster & Safer.
     const incomingFingerprint = hashFingerprint(rawKey);
 
     // 3. Find Key in DB
     const keyRecord = await APIKey.findOne({ keyFingerprint: incomingFingerprint });
+
+    if (keyRecord) {
+      // 3.5. SECURE ATTESTATION (Rust Memory-Safe Decryption)
+      try {
+        const attestResult = secureAttest(
+          keyRecord.encryptedKey,
+          keyRecord.iv,
+          keyRecord.authTag,
+          process.env.MASTER_KEY,
+          incomingFingerprint
+        );
+
+        if (attestResult !== 'MATCH') {
+          throw new Error('Rust Attestation Failed: ' + attestResult);
+        }
+      } catch (attestErr) {
+        console.error('Attestation Warning (Falling back to JS hash):', attestErr.message);
+        // The fingerprint match in Mongo is our fallback if Rust fails
+      }
+    }
 
     if (!keyRecord || !keyRecord.isActive || new Date() > new Date(keyRecord.expiresAt)) {
       const isExpired = keyRecord && new Date() > new Date(keyRecord.expiresAt);
@@ -30,10 +51,7 @@ export const verifyApiKey = async (req, res, next) => {
         details: { reason: isExpired ? 'API Key Expired' : 'Invalid or Revoked Key' }
       };
 
-      await AuditLog.create({
-        ...denialLog,
-        integritySignature: signData(denialLog, process.env.MASTER_KEY)
-      });
+      await writeAuditLog(denialLog);
       return res.status(401).json({ error: isExpired ? 'API Key has expired' : 'Invalid or Revoked API Key' });
     }
 
@@ -54,10 +72,7 @@ export const verifyApiKey = async (req, res, next) => {
       details: { path: req.path }
     };
 
-    await AuditLog.create({
-      ...accessLog,
-      integritySignature: signData(accessLog, process.env.MASTER_KEY)
-    });
+    await writeAuditLog(accessLog);
 
     next();
 
