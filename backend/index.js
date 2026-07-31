@@ -14,6 +14,7 @@ import auditRoutes from './src/routes/auditRoutes.js';
 import dataRoutes from './src/routes/dataRoutes.js';
 import userRoutes from './src/routes/users.js';
 import accessRoutes from './src/routes/accessRoutes.js';
+import tokenRoutes from './src/routes/tokenRoutes.js';
 
 dotenv.config();
 
@@ -91,6 +92,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/keys', keyRoutes);
 app.use('/api/audit-logs', auditRoutes);
 app.use('/api/v1', dataRoutes);
+app.use('/api/v1/token', tokenRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/access', accessRoutes);
 

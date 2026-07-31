@@ -1,14 +1,25 @@
 import express from 'express';
 import { verifyApiKey } from '../middleware/apiKeyMiddleware.js';
+import { verifyEphemeralToken } from '../middleware/ephemeralMiddleware.js';
 import { verifyToken } from '../middleware/authMiddleware.js';
 import APIKey from '../models/APIKey.js';
 import AuditLog from '../models/AuditLog.js';
-import { hashFingerprint, signData } from '../utils/crypto.js';
+import { hashFingerprint } from '../utils/crypto.js';
+import { writeAuditLog } from '../utils/auditWriter.js';
 
 const router = express.Router();
 
+// Accept EITHER legacy API key OR ephemeral SVID token
+const verifyMachineIdentity = (req, res, next) => {
+  const authHeader = req.headers.authorization || '';
+  if (authHeader.startsWith('Bearer akira_')) {
+    return verifyApiKey(req, res, next);        // Legacy path
+  }
+  return verifyEphemeralToken(req, res, next);  // New ephemeral path
+};
+
 // Protected by API Key
-router.get('/secret-report', verifyApiKey, (req, res) => {
+router.get('/secret-report', verifyMachineIdentity, (req, res) => {
   res.json({
     status: 'success',
     data: 'This is confidential data meant only for machines.',
@@ -74,10 +85,7 @@ router.post('/nhi-validate', verifyToken, async (req, res) => {
       timestamp: new Date()
     };
 
-    await AuditLog.create({
-      ...logEntry,
-      integritySignature: signData(logEntry, process.env.MASTER_KEY)
-    });
+    await writeAuditLog(logEntry);
 
     res.json({
       success: true,
