@@ -1,7 +1,8 @@
 import APIKey from '../models/APIKey.js';
 import AuditLog from '../models/AuditLog.js';
-import { generateAPIKey, encrypt, decrypt, hashFingerprint, signData } from '../utils/crypto.js';
+import { generateAPIKey, encrypt, decrypt, hashFingerprint } from '../utils/crypto.js';
 import { generateRustKey } from '../utils/rustEngine.js'; // Import Entropy Engine
+import { writeAuditLog } from '../utils/auditWriter.js';
 
 // @desc    Generate a new API Key (Standard Node.js)
 // @route   POST /keys/generate
@@ -41,12 +42,7 @@ export const generateKey = async (req, res) => {
       details: { keyId: newKey._id }
     };
 
-    const signature = signData(logEntry, process.env.MASTER_KEY);
-
-    await AuditLog.create({
-      ...logEntry,
-      integritySignature: signature
-    });
+    await writeAuditLog(logEntry);
 
     res.status(201).json({
       msg: "Key generated successfully",
@@ -109,10 +105,7 @@ export const rotateKey = async (req, res) => {
       details: { keyId: id, engine: "RustEntropy_v1.0" }
     };
 
-    await AuditLog.create({
-      ...logEntry,
-      integritySignature: signData(logEntry, process.env.MASTER_KEY)
-    });
+    await writeAuditLog(logEntry);
 
     res.json({
       success: true,
@@ -179,12 +172,7 @@ export const deleteKey = async (req, res) => {
       details: { keyId: id, keyName: key.name }
     };
 
-    const signature = signData(logEntry, process.env.MASTER_KEY);
-
-    await AuditLog.create({
-      ...logEntry,
-      integritySignature: signature
-    });
+    await writeAuditLog(logEntry);
 
     res.json({ msg: "Key deleted successfully", keyId: id });
   } catch (error) {

@@ -3,7 +3,7 @@ import AuditLog from '../models/AuditLog.js';
 import argon2 from 'argon2';
 import jwt from 'jsonwebtoken';
 import { sendEmail } from '../utils/mailer.js';
-import { signData } from '../utils/crypto.js';
+import { writeAuditLog } from '../utils/auditWriter.js';
 import crypto from 'crypto';
 
 // Store OTPs in memory
@@ -119,10 +119,7 @@ export const register = async (req, res) => {
       details: { email: newUser.email }
     };
 
-    await AuditLog.create({
-      ...logEntry,
-      integritySignature: signData(logEntry, process.env.MASTER_KEY)
-    });
+    await writeAuditLog(logEntry);
 
     console.log(`User Registered! Initiating Identity Verification for: ${email}`);
     initiateMfa(newUser, 201, res);
@@ -194,10 +191,7 @@ export const verifyMFA = async (req, res) => {
         details: { email: user.email }
       };
 
-      await AuditLog.create({
-        ...logEntry,
-        integritySignature: signData(logEntry, process.env.MASTER_KEY)
-      });
+      await writeAuditLog(logEntry);
 
       delete otpStore[email];
       sendTokenResponse(user, 200, res);
@@ -212,10 +206,7 @@ export const verifyMFA = async (req, res) => {
         details: { email, attempts: storedData.attempts }
       };
 
-      await AuditLog.create({
-        ...failLog,
-        integritySignature: signData(failLog, process.env.MASTER_KEY)
-      });
+      await writeAuditLog(failLog);
 
       res.status(400).json({
         error: `Invalid Code. ${5 - storedData.attempts} attempts remaining.`

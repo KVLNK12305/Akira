@@ -1,5 +1,6 @@
 import AuditLog from '../models/AuditLog.js';
-import { signData } from '../utils/crypto.js';
+import { signData, verifyChain } from '../utils/crypto.js';
+import { writeAuditLog } from '../utils/auditWriter.js';
 
 // @desc    Get all audit logs for the current user
 // @route   GET /api/audit-logs
@@ -26,12 +27,18 @@ export const exportLogs = async (req, res) => {
 
     const allLogs = await AuditLog.find(query)
       .populate('actor', 'username email role')
-      .sort({ timestamp: -1 });
+      .sort({ sequenceNumber: 1 }); // Sort by sequence number for chain validation
+
+    // Verify chain integrity before export
+    const chainResults = verifyChain(allLogs, process.env.MASTER_KEY);
+    const brokenLinks = chainResults.filter(r => !r.valid);
 
     // 2. Prepare the payload
     const payload = {
       system: 'AKIRA Secure Gateway',
       exportedAt: new Date(),
+      chainIntegrity: brokenLinks.length === 0 ? 'VERIFIED' : 'TAMPERED',
+      brokenLinks: brokenLinks.length > 0 ? brokenLinks : undefined,
       exportedBy: {
         id: req.user._id,
         username: req.user.username,
@@ -68,11 +75,7 @@ export const exportLogs = async (req, res) => {
       }
     };
 
-    const exportEvent = new AuditLog({
-      ...exportLog,
-      integritySignature: signData(exportLog, process.env.MASTER_KEY)
-    });
-    await exportEvent.save();
+    await writeAuditLog(exportLog);
 
     res.json(report);
   } catch (error) {

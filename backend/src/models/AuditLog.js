@@ -32,6 +32,19 @@ const AuditLogSchema = new mongoose.Schema({
   integritySignature: {
     type: String,
     required: true
+  },
+
+  // Hash chain: each entry links to its predecessor
+  previousHash: {
+    type: String,
+    default: 'GENESIS'  // First entry in the chain
+  },
+
+  // Monotonic sequence number (detects deletions)
+  sequenceNumber: {
+    type: Number,
+    required: true,
+    index: true
   }
 });
 
