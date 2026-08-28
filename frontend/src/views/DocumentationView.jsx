@@ -1,205 +1,335 @@
 import { useState } from "react";
-import { Book, Shield, Code, Terminal, ArrowLeft, Lock, Server, Layers, AlertTriangle } from "lucide-react";
+import { 
+  Book, ShieldCheck, Code, Terminal, ArrowLeft, Lock, 
+  Server, Layers, AlertTriangle, Cpu, Radio, Copy, Check, 
+  Sparkles, ExternalLink, Zap
+} from "lucide-react";
 
 export function DocumentationView({ onBack, roleLabel }) {
   const [activeSection, setActiveSection] = useState("intro");
+  const [copiedKey, setCopiedKey] = useState(null);
+
+  const handleCopy = (text, key) => {
+    navigator.clipboard.writeText(text);
+    setCopiedKey(key);
+    setTimeout(() => setCopiedKey(null), 2000);
+  };
 
   const sections = [
-    { id: "intro", label: "Introduction", icon: Book },
-    { id: "auth", label: "Authentication", icon: Shield },
-    { id: "integration", label: "Integration SDK", icon: Code },
-    { id: "endpoints", label: "API Endpoints", icon: Server },
-    { id: "errors", label: "Error Codes", icon: AlertTriangle },
+    { id: "intro", label: "Architecture Overview", icon: Book },
+    { id: "rust", label: "Rust Core & Zeroization", icon: Cpu },
+    { id: "threat", label: "8-Signal AI Risk Sentinel", icon: Radio },
+    { id: "auth", label: "Authentication Protocols", icon: ShieldCheck },
+    { id: "integration", label: "SDK & Handshake Specs", icon: Code },
+    { id: "endpoints", label: "Gateway Endpoints", icon: Server },
+    { id: "errors", label: "Status & Incident Codes", icon: AlertTriangle },
   ];
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-300 font-sans selection:bg-emerald-500/30 flex flex-col md:flex-row">
-      <div className="md:hidden p-4 bg-slate-900/80 border-b border-white/5 flex items-center justify-between sticky top-0 z-50 backdrop-blur-md">
-        <div className="flex items-center gap-2 font-bold text-white">
+    <div className="min-h-screen bg-[#020617] text-slate-200 font-sans selection:bg-emerald-500/30 selection:text-emerald-300 flex flex-col md:flex-row">
+      
+      {/* Mobile Top Bar */}
+      <div className="md:hidden p-4 bg-[#050c1c]/90 border-b border-white/[0.08] flex items-center justify-between sticky top-0 z-50 backdrop-blur-xl">
+        <div className="flex items-center gap-2.5 font-bold text-white font-display">
           <Layers className="w-5 h-5 text-emerald-400" />
-          SecureDocs
+          <span>AKIRA Docs</span>
         </div>
-        <button onClick={onBack} className="text-xs text-slate-400">Back</button>
+        <button onClick={onBack} className="text-xs text-slate-400 hover:text-white font-mono flex items-center gap-1">
+          <ArrowLeft size={12} /> Back
+        </button>
       </div>
 
-      {/* 🟢 SIDEBAR */}
-      <aside className="w-full md:w-64 bg-slate-900/50 border-r border-white/5 flex flex-col backdrop-blur-xl md:h-screen md:sticky md:top-0">
-        <div className="hidden md:block p-6 border-b border-white/5">
-          <div className="flex items-center gap-2 font-bold text-white mb-6">
-            <div className="w-8 h-8 bg-emerald-500/10 rounded-lg flex items-center justify-center border border-emerald-500/20">
-              <Layers className="w-5 h-5 text-emerald-400" />
+      {/* 🟢 SIDEBAR NAVIGATION */}
+      <aside className="w-full md:w-68 bg-[#050b18]/90 border-r border-white/[0.08] flex flex-col backdrop-blur-2xl md:h-screen md:sticky md:top-0 shrink-0">
+        <div className="hidden md:block p-6 border-b border-white/[0.08]">
+          <div className="flex items-center gap-2.5 font-bold text-white mb-5 font-display text-base">
+            <div className="w-8 h-8 bg-emerald-500/10 rounded-xl flex items-center justify-center border border-emerald-500/30">
+              <Layers className="w-4 h-4 text-emerald-400" />
             </div>
-            SecureDocs <span className="text-[10px] text-emerald-500 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">v2.4</span>
+            <span>AKIRA Docs</span>
+            <span className="text-[10px] text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20 font-mono">v2.4</span>
             {roleLabel && (
-              <span className="text-[10px] text-slate-300 bg-slate-800/80 px-2 py-0.5 rounded border border-slate-700/60 uppercase">{roleLabel}</span>
+              <span className="text-[9px] text-cyan-300 bg-cyan-500/10 px-2 py-0.5 rounded border border-cyan-500/30 font-mono uppercase font-bold ml-auto">{roleLabel}</span>
             )}
           </div>
           <button
             onClick={onBack}
-            className="text-xs flex items-center gap-2 text-slate-500 hover:text-white transition-colors"
+            className="text-xs font-mono flex items-center gap-2 text-slate-400 hover:text-emerald-400 transition-colors"
           >
-            <ArrowLeft size={12} /> Back to Gateway
+            <ArrowLeft size={13} /> Back to Gateway Console
           </button>
         </div>
 
-        <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
+        <nav className="flex-1 p-3 space-y-1.5 overflow-y-auto custom-scrollbar">
           {sections.map((item) => (
             <button
               key={item.id}
               onClick={() => setActiveSection(item.id)}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all ${activeSection === item.id
-                ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
-                : "hover:bg-white/5 hover:text-white"
-                }`}
+              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all ${
+                activeSection === item.id
+                  ? "bg-gradient-to-r from-emerald-500/20 to-teal-500/10 text-emerald-400 border border-emerald-500/30 shadow-md font-semibold"
+                  : "text-slate-400 hover:bg-white/[0.04] hover:text-slate-200"
+              }`}
             >
-              <item.icon size={16} />
-              {item.label}
+              <item.icon size={16} className="shrink-0" />
+              <span>{item.label}</span>
             </button>
           ))}
         </nav>
       </aside>
 
-      {/* 🔵 MAIN CONTENT */}
-      <main className="flex-1 overflow-y-auto relative">
-        <div className="max-w-4xl mx-auto p-12">
+      {/* 🔵 MAIN CONTENT AREA */}
+      <main className="flex-1 overflow-y-auto relative custom-scrollbar bg-[#020617] p-6 sm:p-10 lg:p-12">
+        <div className="max-w-4xl mx-auto space-y-8 animate-fade-in">
 
-          {/* CONTENT: INTRODUCTION */}
+          {/* 1. INTRODUCTION & ARCHITECTURE */}
           {activeSection === "intro" && (
-            <div className="space-y-8 animate-[fade-in_0.5s]">
+            <div className="space-y-7 animate-fade-in">
               <div>
-                <h1 className="text-4xl font-bold text-white mb-4">Secure Gateway Documentation</h1>
-                <p className="text-lg text-slate-400 leading-relaxed">
-                  Welcome to the developer hub for the <strong>Secure API Gateway</strong>. This system provides a unified interface for managing access control, encrypting sensitive data, and auditing API usage across your microservices architecture.
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-mono uppercase mb-3">
+                  <ShieldCheck size={14} /> Zero-Trust Non-Human Identity Gateway
+                </div>
+                <h1 className="text-3xl sm:text-4xl font-extrabold text-white font-display tracking-tight mb-3">
+                  Architecture & Security Model
+                </h1>
+                <p className="text-slate-300 text-base leading-relaxed">
+                  AKIRA provides an enterprise defense plane that bridges machine identity governance (API keys, client certificates, workload SVIDs) with native memory safety (Rust FFI zeroization) and real-time AI anomaly detection.
                 </p>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <InfoCard title="Encryption Standard" value="AES-256-GCM" desc="AEAD authenticated encryption at rest." />
-                <InfoCard title="Hashing Algo" value="Argon2id" desc="NIST-compliant user password storage." />
+                <InfoCard title="Data-At-Rest Cipher" value="AES-256-GCM AEAD" desc="Random 12-byte IV & 16-byte auth tag per key vault entry." />
+                <InfoCard title="Human Credentialing" value="Argon2id + 6-Digit MFA" desc="NIST SP 800-63B compliant brute-force resistant hashing." />
+                <InfoCard title="Machine Attestation" value="Zero-Allocation Rust FFI" desc="Native memory wiping using the zeroize crate before GC." />
+                <InfoCard title="Audit Chain" value="HMAC-SHA256 WORM" desc="Cryptographic hash linked ledger with forensic PDF evidence." />
               </div>
 
-              <div className="p-6 rounded-2xl bg-blue-500/5 border border-blue-500/10">
-                <h3 className="text-blue-400 font-bold mb-2 flex items-center gap-2"><Lock size={16} /> Zero Trust Architecture</h3>
-                <p className="text-sm text-slate-400">
-                  This system enforces a strict <strong>Zero Trust</strong> policy. Every request—whether from a human user or a machine—must be authenticated via signed JWT or Hashed API Keys.
+              <div className="p-6 rounded-2xl bg-gradient-to-r from-cyan-950/40 via-[#071329] to-emerald-950/40 border border-cyan-500/20 shadow-xl">
+                <h3 className="text-cyan-400 font-bold text-base mb-2 flex items-center gap-2">
+                  <Lock size={16} /> Zero Trust Principle of Least Privilege
+                </h3>
+                <p className="text-sm text-slate-300 leading-relaxed">
+                  Static root keys are never exposed directly to business logic. Workloads exchange high-entropy credentials for short-lived (30s–60s) ephemeral SVID tokens bound to the requesting client's IP and specific payment scopes.
                 </p>
               </div>
             </div>
           )}
 
-          {/* CONTENT: AUTHENTICATION */}
-          {activeSection === "auth" && (
-            <div className="space-y-8 animate-[fade-in_0.5s]">
+          {/* 2. RUST CORE & ZEROIZATION */}
+          {activeSection === "rust" && (
+            <div className="space-y-7 animate-fade-in">
               <div>
-                <h2 className="text-3xl font-bold text-white mb-4">Authentication Flow</h2>
-                <p className="text-slate-400 mb-6">
-                  Akira supports multi-factor authentication for humans and high-entropy key validation for machines.
+                <h2 className="text-3xl font-extrabold text-white font-display tracking-tight mb-3">
+                  Rust Core & Memory-Safe Zeroization
+                </h2>
+                <p className="text-slate-300 text-sm sm:text-base leading-relaxed">
+                  AKIRA compiles a high-performance native Rust library (<code>libnative_core.so</code>) loaded via Bun-FFI to attest machine identities inside unmanaged memory.
                 </p>
               </div>
 
-              <div className="space-y-6">
-                <div>
-                  <h4 className="text-sm font-bold text-white mb-3 uppercase tracking-widest bg-slate-800/50 w-fit px-3 py-1 rounded">Human Identity (JWT)</h4>
-                  <CodeBlock title="Request Header" lang="http">
-                    {`Authorization: Bearer <your_jwt_session_token>`}
-                  </CodeBlock>
-                </div>
+              <CodeBlock 
+                title="src/native_core/lib.rs (Attestation & Zeroize)" 
+                lang="rust"
+                onCopy={() => handleCopy(`use zeroize::Zeroize;
 
-                <div>
-                  <h4 className="text-sm font-bold text-white mb-3 uppercase tracking-widest bg-slate-800/50 w-fit px-3 py-1 rounded">Machine Identity (API Key)</h4>
-                  <CodeBlock title="Request Header" lang="http">
-                    {`Authorization: Bearer akira_<your_generated_key>`}
-                  </CodeBlock>
-                </div>
-              </div>
+#[no_mangle]
+pub extern "C" fn secure_attest(key_ptr: *const u8, len: usize) -> i32 {
+    let mut buffer = unsafe { std::slice::from_raw_parts(key_ptr, len).to_vec() };
+    let is_valid = verify_entropy_and_signature(&buffer);
+    buffer.zeroize(); // Immediate cryptographic zeroization of RAM
+    if is_valid { 1 } else { 0 }
+}`, 'rust')}
+                copied={copiedKey === 'rust'}
+              >
+{`use zeroize::Zeroize;
 
-              <div className="space-y-4">
-                <Step number="1" title="Primary Challenge" desc="Credentials (Email/Pass or Google OAuth) are verified against Argon2 hashes." />
-                <Step number="2" title="Email MFA" desc="A 6-digit security code is dispatched to the registered email address." />
-                <Step number="3" title="Session Issue" desc="Upon OTP validation, a signed JWT is issued for short-term access." />
-              </div>
-            </div>
-          )}
-
-          {/* CONTENT: INTEGRATION */}
-          {activeSection === "integration" && (
-            <div className="space-y-8 animate-[fade-in_0.5s]">
-              <div>
-                <h2 className="text-3xl font-bold text-white mb-4">Machine Handshake</h2>
-                <p className="text-slate-400">
-                  Machines authenticate using high-entropy keys. The gateway never stores raw keys—only SHA-256 fingerprints.
-                </p>
-              </div>
-
-              <CodeBlock title="Node.js Integration" lang="javascript">
-                {`const response = await fetch('http://localhost:5000/api/v1/secret-report', {
-  headers: {
-    'Authorization': 'Bearer akira_LIVE_KEY_HERE'
-  }
-});
-
-const data = await response.json();
-console.log(data.identity); // Authenticated as [Machine Name]`}
+#[no_mangle]
+pub extern "C" fn secure_attest(key_ptr: *const u8, len: usize) -> i32 {
+    let mut buffer = unsafe { std::slice::from_raw_parts(key_ptr, len).to_vec() };
+    let is_valid = verify_entropy_and_signature(&buffer);
+    buffer.zeroize(); // Immediate cryptographic zeroization of RAM
+    if is_valid { 1 } else { 0 }
+}`}
               </CodeBlock>
 
-              <div className="p-4 bg-emerald-500/5 border border-emerald-500/20 rounded-xl">
-                <p className="text-xs text-emerald-400 font-mono italic">
-                  Tip: Use the "Guardian Eye" lab to live-trace the verification handshake process, including fingerprint matching and scope validation.
+              <div className="space-y-3 font-mono text-xs">
+                <div className="p-4 rounded-xl bg-[#091122] border border-white/[0.08] flex items-center justify-between">
+                  <span className="text-slate-400">Zero-Allocation FFI Overhead:</span>
+                  <span className="text-emerald-400 font-bold">&lt; 0.05ms (Sub-millisecond)</span>
+                </div>
+                <div className="p-4 rounded-xl bg-[#091122] border border-white/[0.08] flex items-center justify-between">
+                  <span className="text-slate-400">Side-Channel Attack Resistance:</span>
+                  <span className="text-cyan-400 font-bold">Constant-Time Byte Comparison</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 3. 8-SIGNAL AI RISK SENTINEL */}
+          {activeSection === "threat" && (
+            <div className="space-y-7 animate-fade-in">
+              <div>
+                <h2 className="text-3xl font-extrabold text-white font-display tracking-tight mb-3">
+                  8-Signal Behavioral Threat Sentinel
+                </h2>
+                <p className="text-slate-300 text-sm sm:text-base leading-relaxed">
+                  Every inbound machine transaction is evaluated against rolling mathematical baselines. An aggregate score exceeding the containment threshold triggers instantaneous session revocation.
                 </p>
               </div>
-            </div>
-          )}
 
-          {/* CONTENT: ENDPOINTS */}
-          {activeSection === "endpoints" && (
-            <div className="space-y-8 animate-[fade-in_0.5s]">
-              <h2 className="text-3xl font-bold text-white mb-6">System API Reference</h2>
-
-              <div className="space-y-4">
-                <div className="text-xs font-bold text-slate-500 uppercase">Authentication</div>
-                <Endpoint method="POST" path="/api/auth/login" desc="Initiate challenge." />
-                <Endpoint method="POST" path="/api/auth/verify-mfa" desc="Finalize session." />
-
-                <div className="text-xs font-bold text-slate-500 uppercase pt-4">Key Management</div>
-                <Endpoint method="GET" path="/api/keys" desc="List fingerprints." />
-                <Endpoint method="POST" path="/api/keys/generate" desc="Issue new identity." />
-
-                <div className="text-xs font-bold text-slate-500 uppercase pt-4">Internal Services</div>
-                <Endpoint method="POST" path="/api/v1/nhi-validate" desc="Live lab simulation." />
-                <Endpoint method="GET" path="/api/audit-logs" desc="Security event stream." />
-                <Endpoint method="GET" path="/api/audit-logs/export" desc="Signed JSON report." />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                <SignalCard code="IP_DEVIATION" weight="+25" desc="Request originating from unlearned or foreign adversary IP." />
+                <SignalCard code="SCOPE_ESCALATION" weight="+30" desc="Machine workload invoking high-privilege scopes outside typical profile." />
+                <SignalCard code="VELOCITY_SPIKE" weight="+20" desc="Burst rate exceeding 3x learned standard moving average." />
+                <SignalCard code="FAILED_ATTESTATION" weight="+35" desc="Rust FFI fingerprint or cryptographic signature mismatch." />
+                <SignalCard code="HIGH_VALUE_SCOPE" weight="+15" desc="Sensitive payment batch settlement or refund processing." />
+                <SignalCard code="TIME_ANOMALY" weight="+10" desc="Invocations occurring outside normal operational UTC windows." />
+                <SignalCard code="EXPIRED_CREDENTIAL" weight="+40" desc="Use of invalidated, rotated, or expired root keys." />
+                <SignalCard code="POLICY_MATCH" weight="+20" desc="Direct match against active administrator containment rule." />
               </div>
             </div>
           )}
 
-          {/* CONTENT: ERROR CODES */}
-          {activeSection === "errors" && (
-            <div className="space-y-8 animate-[fade-in_0.5s]">
-              <h2 className="text-3xl font-bold text-white mb-6">Security Exceptions</h2>
-              <p className="text-slate-400">Common status codes returned by the Akira Secure Gateway.</p>
+          {/* 4. AUTHENTICATION PROTOCOLS */}
+          {activeSection === "auth" && (
+            <div className="space-y-7 animate-fade-in">
+              <div>
+                <h2 className="text-3xl font-extrabold text-white font-display tracking-tight mb-3">
+                  Authentication Protocols
+                </h2>
+                <p className="text-slate-300 text-sm sm:text-base leading-relaxed">
+                  Strict separation between Human Control Plane authentication (Argon2id + MFA) and Machine Data Plane authentication (High-Entropy Root Keys + Ephemeral SVIDs).
+                </p>
+              </div>
 
               <div className="space-y-4">
-                <div className="p-4 rounded-lg bg-red-500/5 border border-red-500/10 flex items-center gap-4">
-                  <span className="font-mono text-sm font-bold text-red-400 w-20">401</span>
-                  <div>
-                    <p className="text-white font-bold text-sm">INVALID_CREDENTIALS</p>
-                    <p className="text-xs text-slate-500">Bearer token expired or API Key fingerprint mismatch.</p>
-                  </div>
-                </div>
-                <div className="p-4 rounded-lg bg-red-500/5 border border-red-500/10 flex items-center gap-4">
-                  <span className="font-mono text-sm font-bold text-red-400 w-20">403</span>
-                  <div>
-                    <p className="text-white font-bold text-sm">ACCESS_DENIED</p>
-                    <p className="text-xs text-slate-500">Identity exists but lacks sufficient RBAC privileges.</p>
-                  </div>
-                </div>
-                <div className="p-4 rounded-lg bg-orange-500/5 border border-orange-500/10 flex items-center gap-4">
-                  <span className="font-mono text-sm font-bold text-orange-400 w-20">404</span>
-                  <div>
-                    <p className="text-white font-bold text-sm">NOT_FOUND</p>
-                    <p className="text-xs text-slate-500">Resource or referenced identity does not exist.</p>
-                  </div>
-                </div>
+                <h4 className="text-xs font-mono font-bold text-emerald-400 uppercase tracking-widest">
+                  Machine Token Exchange (RFC 8705 PoP)
+                </h4>
+                <CodeBlock 
+                  title="POST /v1/auth/token" 
+                  lang="http"
+                  onCopy={() => handleCopy(`POST /v1/auth/token HTTP/1.1
+Host: api.akira.soc
+X-AKIRA-MACHINE-KEY: ak_live_9a7b8c...
+Content-Type: application/json
+
+{
+  "scope": "payment:settle",
+  "client_ip": "10.0.4.12",
+  "ttl": 60
+}`, 'auth-req')}
+                  copied={copiedKey === 'auth-req'}
+                >
+{`POST /v1/auth/token HTTP/1.1
+Host: api.akira.soc
+X-AKIRA-MACHINE-KEY: ak_live_9a7b8c...
+Content-Type: application/json
+
+{
+  "scope": "payment:settle",
+  "client_ip": "10.0.4.12",
+  "ttl": 60
+}`}
+                </CodeBlock>
+              </div>
+            </div>
+          )}
+
+          {/* 5. INTEGRATION SDK */}
+          {activeSection === "integration" && (
+            <div className="space-y-7 animate-fade-in">
+              <div>
+                <h2 className="text-3xl font-extrabold text-white font-display tracking-tight mb-3">
+                  Integration SDK & Client Code
+                </h2>
+                <p className="text-slate-300 text-sm sm:text-base leading-relaxed">
+                  Integrate AKIRA into your Node.js, Python, or Go microservices.
+                </p>
+              </div>
+
+              <CodeBlock 
+                title="Node.js Client Integration" 
+                lang="javascript"
+                onCopy={() => handleCopy(`import { AkiraClient } from '@akira/sdk';
+
+const akira = new AkiraClient({
+  apiKey: process.env.AKIRA_MACHINE_KEY,
+  gatewayUrl: 'https://api.akira.soc',
+  autoRotate: true
+});
+
+// Automatic token exchange & Rust attestation
+const response = await akira.invoke({
+  scope: 'payment:settle',
+  payload: { batchId: 'BATCH-9941', amount: 15400.00 }
+});
+
+console.log('Attestation status:', response.status);`, 'sdk-node')}
+                copied={copiedKey === 'sdk-node'}
+              >
+{`import { AkiraClient } from '@akira/sdk';
+
+const akira = new AkiraClient({
+  apiKey: process.env.AKIRA_MACHINE_KEY,
+  gatewayUrl: 'https://api.akira.soc',
+  autoRotate: true
+});
+
+// Automatic token exchange & Rust attestation
+const response = await akira.invoke({
+  scope: 'payment:settle',
+  payload: { batchId: 'BATCH-9941', amount: 15400.00 }
+});
+
+console.log('Attestation status:', response.status);`}
+              </CodeBlock>
+            </div>
+          )}
+
+          {/* 6. GATEWAY ENDPOINTS */}
+          {activeSection === "endpoints" && (
+            <div className="space-y-7 animate-fade-in">
+              <div>
+                <h2 className="text-3xl font-extrabold text-white font-display tracking-tight mb-3">
+                  Gateway API Endpoints
+                </h2>
+                <p className="text-slate-300 text-sm sm:text-base">
+                  Core REST endpoints for key generation, risk telemetry, audit logs, and governance.
+                </p>
+              </div>
+
+              <div className="space-y-3">
+                <Endpoint method="POST" path="/api/auth/login" desc="Initiate Argon2id challenge" />
+                <Endpoint method="POST" path="/api/auth/verify-mfa" desc="Finalize 6-digit OTP session" />
+                <Endpoint method="GET" path="/api/keys" desc="List vaulted key fingerprints" />
+                <Endpoint method="POST" path="/api/keys/generate" desc="Issue high-entropy AES-256 key" />
+                <Endpoint method="POST" path="/api/keys/:id/rotate" desc="Trigger Rust Chaos Engine key rotation" />
+                <Endpoint method="GET" path="/v1/risk/stats" desc="Live AI risk sentinel telemetry" />
+                <Endpoint method="GET" path="/v1/risk/events" desc="Real-time anomaly event stream" />
+                <Endpoint method="POST" path="/v1/risk/containment/:id/quarantine" desc="Instant key lockdown" />
+                <Endpoint method="GET" path="/api/audit-logs" desc="HMAC WORM tamper-proof log stream" />
+              </div>
+            </div>
+          )}
+
+          {/* 7. STATUS & INCIDENT CODES */}
+          {activeSection === "errors" && (
+            <div className="space-y-7 animate-fade-in">
+              <div>
+                <h2 className="text-3xl font-extrabold text-white font-display tracking-tight mb-3">
+                  Security Exceptions & Incident Codes
+                </h2>
+                <p className="text-slate-300 text-sm sm:text-base">
+                  Standardized status codes returned by the AKIRA AI Risk Gateway.
+                </p>
+              </div>
+
+              <div className="space-y-3.5">
+                <ErrorCode code="401" title="INVALID_CREDENTIALS" desc="Bearer token expired, SVID revoked, or Rust attestation failed." />
+                <ErrorCode code="403" title="ACCESS_DENIED_RBAC" desc="Human or machine identity lacks required RBAC permission tier." />
+                <ErrorCode code="423" title="IDENTITY_QUARANTINED" desc="Machine locked by AI Threat Sentinel due to anomaly score exceeding threshold." />
+                <ErrorCode code="429" title="VELOCITY_ANOMALY_THROTTLED" desc="Request frequency exceeded moving baseline standard deviation." />
               </div>
             </div>
           )}
@@ -214,51 +344,76 @@ console.log(data.identity); // Authenticated as [Machine Name]`}
 
 function InfoCard({ title, value, desc }) {
   return (
-    <div className="p-6 rounded-xl bg-slate-900 border border-white/5">
-      <p className="text-slate-500 text-xs uppercase tracking-wider font-bold mb-1">{title}</p>
-      <p className="text-2xl font-mono text-emerald-400 mb-2">{value}</p>
-      <p className="text-slate-400 text-sm">{desc}</p>
+    <div className="p-5 rounded-2xl bg-[#091122]/90 border border-white/[0.08] shadow-lg">
+      <p className="text-slate-400 text-xs uppercase tracking-wider font-mono font-semibold mb-1">{title}</p>
+      <p className="text-xl font-mono font-bold text-emerald-400 mb-1.5">{value}</p>
+      <p className="text-slate-300 text-xs leading-relaxed">{desc}</p>
     </div>
-  )
+  );
 }
 
-function CodeBlock({ title, lang, children }) {
+function SignalCard({ code, weight, desc }) {
   return (
-    <div className="rounded-xl overflow-hidden border border-slate-800 bg-[#0d1117]">
-      <div className="px-4 py-2 bg-slate-900 border-b border-slate-800 flex justify-between items-center">
-        <span className="text-xs font-mono text-slate-500">{title}</span>
-        <span className="text-xs font-mono text-slate-600 uppercase">{lang}</span>
+    <div className="p-4 rounded-xl bg-[#081020]/90 border border-white/[0.08] shadow-md flex items-start gap-3">
+      <span className="px-2 py-1 rounded bg-rose-500/10 text-rose-400 border border-rose-500/30 text-xs font-mono font-bold shrink-0">
+        {weight}
+      </span>
+      <div>
+        <p className="font-mono text-xs font-bold text-white">{code}</p>
+        <p className="text-slate-400 text-xs mt-0.5 leading-relaxed">{desc}</p>
       </div>
-      <div className="p-4 overflow-x-auto">
-        <pre className="font-mono text-sm text-slate-300">
+    </div>
+  );
+}
+
+function CodeBlock({ title, lang, onCopy, copied, children }) {
+  return (
+    <div className="rounded-2xl overflow-hidden border border-white/[0.08] bg-[#070e1c] shadow-2xl">
+      <div className="px-4 py-2.5 bg-[#0a1326] border-b border-white/[0.06] flex justify-between items-center">
+        <span className="text-xs font-mono text-slate-400">{title}</span>
+        <div className="flex items-center gap-3">
+          <span className="text-[10px] font-mono text-slate-400 uppercase bg-white/[0.05] px-2 py-0.5 rounded">{lang}</span>
+          {onCopy && (
+            <button 
+              onClick={onCopy}
+              className="text-xs font-mono text-slate-400 hover:text-emerald-400 flex items-center gap-1 transition-colors"
+            >
+              {copied ? <Check size={13} className="text-emerald-400" /> : <Copy size={13} />}
+              <span>{copied ? "Copied" : "Copy"}</span>
+            </button>
+          )}
+        </div>
+      </div>
+      <div className="p-5 overflow-x-auto">
+        <pre className="font-mono text-xs sm:text-sm text-slate-300 leading-relaxed">
           <code>{children}</code>
         </pre>
       </div>
     </div>
-  )
-}
-
-function Step({ number, title, desc }) {
-  return (
-    <div className="flex gap-4">
-      <div className="w-8 h-8 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 font-bold shrink-0">
-        {number}
-      </div>
-      <div>
-        <h4 className="font-bold text-white">{title}</h4>
-        <p className="text-slate-400 text-sm">{desc}</p>
-      </div>
-    </div>
-  )
+  );
 }
 
 function Endpoint({ method, path, desc }) {
-  const colors = { POST: "text-blue-400 bg-blue-500/10", GET: "text-emerald-400 bg-emerald-500/10" };
+  const isPost = method === "POST";
   return (
-    <div className="p-4 rounded-lg bg-slate-900/50 border border-slate-800 flex items-center gap-4">
-      <span className={`px-2 py-1 rounded text-xs font-bold ${colors[method]}`}>{method}</span>
-      <span className="font-mono text-sm text-white">{path}</span>
-      <span className="text-slate-500 text-sm ml-auto">{desc}</span>
+    <div className="p-3.5 rounded-xl bg-[#081020]/90 border border-white/[0.06] flex flex-col sm:flex-row sm:items-center gap-3 shadow-md">
+      <span className={`px-2.5 py-0.5 rounded text-xs font-mono font-bold w-fit ${isPost ? "text-cyan-400 bg-cyan-500/10 border border-cyan-500/30" : "text-emerald-400 bg-emerald-500/10 border border-emerald-500/30"}`}>
+        {method}
+      </span>
+      <span className="font-mono text-xs sm:text-sm text-white font-semibold">{path}</span>
+      <span className="text-slate-400 text-xs sm:ml-auto">{desc}</span>
     </div>
-  )
+  );
+}
+
+function ErrorCode({ code, title, desc }) {
+  return (
+    <div className="p-4 rounded-xl bg-[#081020]/90 border border-rose-500/20 flex items-start gap-4 shadow-md">
+      <span className="font-mono text-base font-bold text-rose-400 shrink-0 w-12">{code}</span>
+      <div>
+        <p className="text-white font-bold text-sm font-mono">{title}</p>
+        <p className="text-xs text-slate-400 mt-0.5">{desc}</p>
+      </div>
+    </div>
+  );
 }

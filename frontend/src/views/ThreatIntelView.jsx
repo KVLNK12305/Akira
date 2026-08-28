@@ -7,7 +7,7 @@ import {
 } from "lucide-react";
 import api from "../api/axios";
 
-export function ThreatIntelView({ user, notify }) {
+export function ThreatIntelView({ notify }) {
   const [stats, setStats] = useState(null);
   const [events, setEvents] = useState([]);
   const [profiles, setProfiles] = useState([]);
@@ -47,15 +47,7 @@ export function ThreatIntelView({ user, notify }) {
     'read:data', 'write:data', 'delete:data'
   ];
 
-  const availableSignals = [
-    'IP_DEVIATION', 'SCOPE_ESCALATION', 'VELOCITY_SPIKE',
-    'TIME_ANOMALY', 'NEW_IDENTITY', 'FAILED_ATTESTATION',
-    'EXPIRED_CREDENTIAL', 'HIGH_VALUE_SCOPE',
-    'IMPOSSIBLE_TRAVEL', 'GEO_ANOMALY', 'DEVICE_ANOMALY',
-    'MALICIOUS_IP', 'COMPROMISED_CREDENTIAL', 'STALE_TOKEN_HIGH_VALUE',
-    'UNUSUAL_ENDPOINT', 'SENSITIVE_OPERATION', 'CONCURRENT_SESSIONS',
-    'OFF_HOURS_ACCESS', 'FREQUENCY_PATTERN_DEVIATION'
-  ];
+
 
   useEffect(() => {
     fetchThreatData();
@@ -226,57 +218,102 @@ export function ThreatIntelView({ user, notify }) {
         </div>
       </div>
 
-      {/* 1. THREAT HEATMAP OVERVIEW CARDS */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Card 1: Total Assessed */}
-        <div className="bg-slate-900/60 border border-slate-800/80 hover:border-slate-700 p-5 rounded-2xl backdrop-blur-md transition-all shadow-xl">
-          <div className="flex justify-between items-start mb-2">
-            <span className="text-xs font-mono uppercase text-slate-400 tracking-wider">Total Evaluated</span>
-            <Activity size={18} className="text-blue-400" />
+      {/* 1. THREAT RADAR & TELEMETRY OVERVIEW */}
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
+        {/* Radar Visualizer Box (1 col on large screens) */}
+        <div className="lg:col-span-1 bg-[#091122]/90 border border-emerald-500/30 p-4 rounded-2xl backdrop-blur-xl shadow-xl flex flex-col items-center justify-center relative overflow-hidden group">
+          <div className="absolute inset-0 cyber-grid-pattern opacity-30"></div>
+          
+          {/* Circular Radar Screen */}
+          <div className="relative w-28 h-28 rounded-full border border-emerald-500/40 flex items-center justify-center shadow-[0_0_20px_rgba(16,185,129,0.2)] bg-[#040914]/80">
+            {/* Concentric rings */}
+            <div className="absolute w-20 h-20 rounded-full border border-emerald-500/25"></div>
+            <div className="absolute w-12 h-12 rounded-full border border-emerald-500/20"></div>
+            <div className="absolute w-full h-[1px] bg-emerald-500/20"></div>
+            <div className="absolute h-full w-[1px] bg-emerald-500/20"></div>
+            
+            {/* Rotating Radar Sweep Needle */}
+            <div className="absolute inset-0 rounded-full bg-[conic-gradient(from_0deg,transparent_0deg,transparent_270deg,rgba(16,185,129,0.4)_360deg)] animate-[radar-sweep_3.5s_linear_infinite] pointer-events-none"></div>
+
+            {/* Target Blips */}
+            <div className="absolute top-6 right-7 w-2 h-2 rounded-full bg-emerald-400 animate-ping"></div>
+            <div className="absolute bottom-6 left-8 w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></div>
+            {stats?.summary?.quarantinedIdentities > 0 && (
+              <div className="absolute top-8 left-6 w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping"></div>
+            )}
+            
+            <ShieldAlert size={18} className="text-emerald-400 relative z-10" />
           </div>
-          <p className="text-3xl font-extrabold text-white font-mono">{stats?.summary?.totalEvaluations || 0}</p>
-          <p className="text-xs text-slate-500 mt-1 flex items-center gap-1">
-            <CheckCircle2 size={12} className="text-emerald-400" /> Continuous M2M Inspection
-          </p>
+          
+          <div className="mt-2 text-center relative z-10">
+            <span className="text-[10px] font-mono text-emerald-400 uppercase tracking-widest font-bold flex items-center gap-1.5 justify-center">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+              RADAR ACTIVE
+            </span>
+            <p className="text-[9px] text-slate-400 font-mono">8-SIGNAL SCANNER</p>
+          </div>
         </div>
 
-        {/* Card 2: Contained Identities */}
-        <div className="bg-slate-900/60 border border-slate-800/80 hover:border-red-500/30 p-5 rounded-2xl backdrop-blur-md transition-all shadow-xl">
-          <div className="flex justify-between items-start mb-2">
-            <span className="text-xs font-mono uppercase text-slate-400 tracking-wider">Contained Events</span>
-            <ShieldAlert size={18} className="text-red-400 animate-pulse" />
+        {/* 4 Heatmap Metric Cards */}
+        <div className="lg:col-span-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* Card 1: Total Assessed */}
+          <div className="bg-[#091122]/90 border border-white/[0.08] hover:border-cyan-500/30 p-4 rounded-2xl backdrop-blur-xl transition-all shadow-xl flex flex-col justify-between">
+            <div className="flex justify-between items-start mb-1">
+              <span className="text-[11px] font-mono uppercase text-slate-400 tracking-wider">Total Evaluated</span>
+              <Activity size={16} className="text-cyan-400" />
+            </div>
+            <div>
+              <p className="text-2xl font-black text-white font-mono">{stats?.summary?.totalEvaluations || 0}</p>
+              <p className="text-[11px] text-emerald-400 mt-1 flex items-center gap-1 font-mono font-medium">
+                <CheckCircle2 size={11} /> Continuous M2M
+              </p>
+            </div>
           </div>
-          <p className="text-3xl font-extrabold text-red-400 font-mono">{stats?.summary?.containedCount || 0}</p>
-          <p className="text-xs text-red-400/80 mt-1 flex items-center gap-1">
-            <XCircle size={12} className="text-red-400" /> Auto-Quarantined Anomalies
-          </p>
-        </div>
 
-        {/* Card 3: Active Quarantines */}
-        <div className="bg-slate-900/60 border border-slate-800/80 hover:border-orange-500/30 p-5 rounded-2xl backdrop-blur-md transition-all shadow-xl">
-          <div className="flex justify-between items-start mb-2">
-            <span className="text-xs font-mono uppercase text-slate-400 tracking-wider">Quarantined NHIs</span>
-            <Lock size={18} className="text-orange-400" />
+          {/* Card 2: Contained Events */}
+          <div className="bg-[#091122]/90 border border-white/[0.08] hover:border-rose-500/40 p-4 rounded-2xl backdrop-blur-xl transition-all shadow-xl flex flex-col justify-between">
+            <div className="flex justify-between items-start mb-1">
+              <span className="text-[11px] font-mono uppercase text-slate-400 tracking-wider">Contained Events</span>
+              <ShieldAlert size={16} className="text-rose-400 animate-pulse" />
+            </div>
+            <div>
+              <p className="text-2xl font-black text-rose-400 font-mono">{stats?.summary?.containedCount || 0}</p>
+              <p className="text-[11px] text-rose-400/90 mt-1 flex items-center gap-1 font-mono font-medium">
+                <XCircle size={11} /> Auto-Quarantined
+              </p>
+            </div>
           </div>
-          <p className="text-3xl font-extrabold text-orange-400 font-mono">{stats?.summary?.quarantinedIdentities || 0}</p>
-          <p className="text-xs text-slate-500 mt-1">Machine Tokens Revoked</p>
-        </div>
 
-        {/* Card 4: Avg Risk Score */}
-        <div className="bg-slate-900/60 border border-slate-800/80 hover:border-emerald-500/30 p-5 rounded-2xl backdrop-blur-md transition-all shadow-xl">
-          <div className="flex justify-between items-start mb-2">
-            <span className="text-xs font-mono uppercase text-slate-400 tracking-wider">System Risk Index</span>
-            <TrendingUp size={18} className="text-emerald-400" />
+          {/* Card 3: Active Quarantines */}
+          <div className="bg-[#091122]/90 border border-white/[0.08] hover:border-amber-500/40 p-4 rounded-2xl backdrop-blur-xl transition-all shadow-xl flex flex-col justify-between">
+            <div className="flex justify-between items-start mb-1">
+              <span className="text-[11px] font-mono uppercase text-slate-400 tracking-wider">Quarantined NHIs</span>
+              <Lock size={16} className="text-amber-400" />
+            </div>
+            <div>
+              <p className="text-2xl font-black text-amber-400 font-mono">{stats?.summary?.quarantinedIdentities || 0}</p>
+              <p className="text-[11px] text-slate-400 mt-1 font-mono">Tokens Revoked</p>
+            </div>
           </div>
-          <div className="flex items-baseline gap-2">
-            <p className="text-3xl font-extrabold text-emerald-400 font-mono">{stats?.summary?.avgRiskScore || 0}</p>
-            <span className="text-xs text-slate-500">/ 100</span>
-          </div>
-          <div className="w-full bg-slate-800 h-1.5 rounded-full mt-2 overflow-hidden">
-            <div
-              className="bg-emerald-500 h-full transition-all duration-500"
-              style={{ width: `${Math.min(stats?.summary?.avgRiskScore || 5, 100)}%` }}
-            ></div>
+
+          {/* Card 4: Avg Risk Score */}
+          <div className="bg-[#091122]/90 border border-white/[0.08] hover:border-emerald-500/40 p-4 rounded-2xl backdrop-blur-xl transition-all shadow-xl flex flex-col justify-between">
+            <div className="flex justify-between items-start mb-1">
+              <span className="text-[11px] font-mono uppercase text-slate-400 tracking-wider">System Risk Index</span>
+              <TrendingUp size={16} className="text-emerald-400" />
+            </div>
+            <div>
+              <div className="flex items-baseline gap-1.5">
+                <p className="text-2xl font-black text-emerald-400 font-mono">{stats?.summary?.avgRiskScore || 0}</p>
+                <span className="text-xs text-slate-500 font-mono">/ 100</span>
+              </div>
+              <div className="w-full bg-slate-800 h-1.5 rounded-full mt-2 overflow-hidden">
+                <div
+                  className="bg-gradient-to-r from-emerald-400 to-cyan-400 h-full transition-all duration-500"
+                  style={{ width: `${Math.min(stats?.summary?.avgRiskScore || 5, 100)}%` }}
+                ></div>
+              </div>
+            </div>
           </div>
         </div>
       </div>

@@ -8,6 +8,8 @@ import {
 } from "lucide-react";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
+import gsap from "gsap";
+import { useGSAP } from "@gsap/react";
 import api, { API_URL } from "../api/axios";
 import { DocumentationView } from "./DocumentationView";
 import { ThreatIntelView } from "./ThreatIntelView";
@@ -33,13 +35,13 @@ const formatDate = (dateStr) => {
 // --- MAIN COMPONENT ---
 export function DashboardView({ user, keys, logs, onGenerateKey, onLogout, onDeleteKey, onRefreshKeys, onProfile }) {
   // 🟢 onRefreshKeys prop allows us to refresh the list after rotation
+  const containerRef = useRef(null);
 
   // 1. STATE MANAGEMENT
   // ----------------------------------------
   const [activeTab, setActiveTab] = useState("matrix"); // Default to User Management
   const [userList, setUserList] = useState([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
-  const [showProfile, setShowProfile] = useState(false);
 
   // RUST/GATEWAY FEATURE: State for the newly issued key (Only shown once)
   const [revealedKey, setRevealedKey] = useState(null);
@@ -111,6 +113,16 @@ export function DashboardView({ user, keys, logs, onGenerateKey, onLogout, onDel
   // ----------------------------------------
   // 3. EFFECTS (Live Updates)
   // ----------------------------------------
+
+  // 🎭 GSAP ENTRY CHOREOGRAPHY
+  useGSAP(() => {
+    const tl = gsap.timeline({ defaults: { ease: "power3.out" } });
+    
+    // Stagger in sidebar, then topbar, then main content
+    tl.from(".gsap-sidebar", { x: -50, opacity: 0, duration: 0.6 })
+      .from(".gsap-topbar", { y: -20, opacity: 0, duration: 0.5 }, "-=0.3")
+      .from(".gsap-content", { y: 20, opacity: 0, duration: 0.5, stagger: 0.1 }, "-=0.2");
+  }, { scope: containerRef });
 
   // 💓 Heartbeat Effect (Simulates Rust Microservice)
   useEffect(() => {
@@ -441,7 +453,7 @@ export function DashboardView({ user, keys, logs, onGenerateKey, onLogout, onDel
   // 5. RENDER
   // ----------------------------------------
   return (
-    <div className="h-screen bg-slate-950 flex text-slate-200 font-sans selection:bg-emerald-500/30 overflow-hidden">
+    <div ref={containerRef} className="h-screen bg-[#020617] flex text-slate-200 font-sans selection:bg-emerald-500/30 overflow-hidden">
 
       {/* MOBILE HEADER */}
       <div className="md:hidden fixed top-0 w-full z-40 bg-slate-900/80 backdrop-blur-md border-b border-slate-800 p-4 flex justify-between items-center">
@@ -458,65 +470,71 @@ export function DashboardView({ user, keys, logs, onGenerateKey, onLogout, onDel
       </div>
 
       {/* =======================
-          🟢 LEFT SIDEBAR
+          🟢 LEFT SIDEBAR (Cyber SOC)
       ======================== */}
-      <aside className={`w-64 bg-slate-900/50 border-r border-slate-800 flex flex-col backdrop-blur-xl fixed h-full z-50 transition-transform duration-300 md:translate-x-0 ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-        <div className="p-6 flex items-center gap-3 border-b border-slate-800/50">
-          <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center border border-emerald-500/20">
-            <Shield className="w-5 h-5 text-emerald-400" />
+      <aside className={`gsap-sidebar w-64 bg-[#050b18]/90 border-r border-white/[0.08] flex flex-col backdrop-blur-2xl fixed h-full z-50 transition-transform duration-300 md:translate-x-0 ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+        <div className="p-6 flex items-center gap-3 border-b border-white/[0.08]">
+          <div className="relative group">
+            <div className="absolute -inset-1 bg-gradient-to-r from-emerald-500 to-cyan-500 rounded-xl blur-sm opacity-50 group-hover:opacity-100 transition duration-300"></div>
+            <div className="relative w-9 h-9 bg-[#0a1428] rounded-xl flex items-center justify-center border border-emerald-500/30">
+              <Shield className="w-5 h-5 text-emerald-400 drop-shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
+            </div>
           </div>
           <div>
-            <h1 className="font-bold text-slate-100 tracking-tight">AKIRA<span className="text-emerald-400">Gate</span></h1>
-            <p className="text-[10px] text-slate-500 font-mono">v2.0 • PRO</p>
+            <h1 className="font-extrabold text-white tracking-wider font-display text-base flex items-center gap-1">
+              AKIRA <span className="text-emerald-400 text-xs font-mono px-1.5 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20">SOC</span>
+            </h1>
+            <p className="text-[10px] text-slate-400 font-mono tracking-widest uppercase">Zero-Trust v2.4</p>
           </div>
         </div>
 
-        <nav className="flex-1 p-4 space-y-1">
+        <nav className="flex-1 p-3 space-y-1.5 overflow-y-auto custom-scrollbar">
           <NavButton
             icon={Key}
-            label="API Credentials"
+            label="API Key Vault"
             active={activeTab === 'keys'}
             onClick={() => { setActiveTab('keys'); setIsMobileMenuOpen(false); }}
           />
           <NavButton
             icon={Zap}
-            label="AI Threat Intel"
+            label="AI Threat Sentinel"
             active={activeTab === 'threat'}
             badge="LIVE"
             onClick={() => { setActiveTab('threat'); setIsMobileMenuOpen(false); }}
           />
           <NavButton
             icon={FileText}
-            label="Audit Logs"
+            label="Audit & WORM Logs"
             active={activeTab === 'logs'}
             onClick={() => { setActiveTab('logs'); setIsMobileMenuOpen(false); }}
           />
           <NavButton
             icon={Users}
-            label="User Management"
+            label="RBAC & Governance"
             active={activeTab === 'matrix'}
             onClick={() => { setActiveTab('matrix'); setIsMobileMenuOpen(false); }}
           />
           <NavButton
             icon={Book}
-            label={`Documentation (${currentRole})`}
+            label="API Documentation"
             active={activeTab === 'docs'}
             onClick={() => { setActiveTab('docs'); setIsMobileMenuOpen(false); }}
           />
           <NavButton
             icon={Eye}
-            label="Guardian Eye (NHI Lab)"
+            label="Guardian Eye (NHI)"
             active={activeTab === 'nhi'}
             onClick={() => { setActiveTab('nhi'); setIsMobileMenuOpen(false); }}
           />
         </nav>
+
         {/* User Profile Footer (Clickable) */}
         <div
           onClick={onProfile}
-          className="p-4 bg-slate-900/80 border-t border-slate-800 cursor-pointer hover:bg-slate-800 transition-colors group"
+          className="p-4 bg-[#081022]/80 border-t border-white/[0.08] cursor-pointer hover:bg-[#0c1630] transition-colors group"
         >
           <div className="flex items-center gap-3 mb-2">
-            <div className="w-8 h-8 rounded-full bg-slate-800 border-4 border-slate-700 overflow-hidden flex items-center justify-center font-bold text-xs group-hover:border-emerald-500/50 transition-colors shadow-lg">
+            <div className="w-9 h-9 rounded-xl bg-slate-800 border border-emerald-500/30 overflow-hidden flex items-center justify-center font-bold text-xs group-hover:border-emerald-400 transition-colors shadow-md shrink-0">
               {user?.profilePicture ? (
                 <img
                   src={user.profilePicture.startsWith('http') ? user.profilePicture : `${API_URL}${user.profilePicture}`}
@@ -524,23 +542,24 @@ export function DashboardView({ user, keys, logs, onGenerateKey, onLogout, onDel
                   className="w-full h-full object-cover"
                 />
               ) : (
-                user?.username?.substring(0, 2).toUpperCase()
+                <span className="text-emerald-400 font-mono font-bold">{user?.username?.substring(0, 2).toUpperCase()}</span>
               )}
             </div>
-            <div className="overflow-hidden">
-              <p className="text-sm font-medium text-white truncate w-32">{user?.username}</p>
-              <div className="flex items-center gap-1.5">
-                <div className={`w-1.5 h-1.5 rounded-full animate-pulse ${isStrictAdmin ? 'bg-purple-500' : 'bg-emerald-500'}`}></div>
-                <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">{user?.role}</p>
+            <div className="overflow-hidden flex-1">
+              <p className="text-xs font-bold text-white truncate font-display">{user?.username}</p>
+              <div className="flex items-center gap-1.5 mt-0.5">
+                <span className={`w-1.5 h-1.5 rounded-full ${isStrictAdmin ? 'bg-purple-400 animate-pulse' : 'bg-emerald-400'}`}></span>
+                <p className="text-[10px] text-slate-400 uppercase font-mono font-bold tracking-wider">{user?.role}</p>
               </div>
             </div>
           </div>
-          <div className="text-[10px] text-slate-600 flex justify-between items-center mt-2 group-hover:text-slate-500">
-            <span>Click to view profile</span>
-            <ChevronDown size={10} />
+          <div className="text-[10px] text-slate-400 flex justify-between items-center mt-1 group-hover:text-emerald-400 font-mono transition-colors">
+            <span>Identity Profile</span>
+            <ChevronDown size={11} />
           </div>
         </div>
-        <div className="p-4 border-t border-white/5 space-y-1">
+
+        <div className="p-3 border-t border-white/[0.06] bg-[#050b18]">
           <button
             onClick={() => {
               setConfirmModal({
@@ -551,10 +570,10 @@ export function DashboardView({ user, keys, logs, onGenerateKey, onLogout, onDel
                 onConfirm: onLogout
               });
             }}
-            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-red-400 hover:bg-red-500/10 transition-all group"
+            className="w-full flex items-center justify-center gap-2.5 px-4 py-2.5 rounded-xl text-xs font-semibold text-rose-400 hover:bg-rose-500/10 border border-rose-500/20 hover:border-rose-500/40 transition-all group font-mono"
           >
-            <LogOut size={18} className="group-hover:-translate-x-1 transition-transform" />
-            Sign Out
+            <LogOut size={14} className="group-hover:-translate-x-0.5 transition-transform" />
+            <span>End Session</span>
           </button>
         </div>
       </aside>
@@ -562,50 +581,62 @@ export function DashboardView({ user, keys, logs, onGenerateKey, onLogout, onDel
       {/* =======================
           🔵 MAIN CONTENT AREA
       ======================== */}
-      <main className="flex-1 md:ml-64 p-4 md:p-8 relative overflow-y-auto h-full pt-20 md:pt-8 custom-scrollbar">
+      <main className="flex-1 md:ml-64 p-4 md:p-8 relative overflow-y-auto h-full pt-20 md:pt-8 custom-scrollbar bg-[#020617]">
 
-        {/* HEADER & WIDGETS */}
-        <header className="flex justify-between items-start mb-8 relative z-10">
+        {/* Ambient Grid Background */}
+        <div className="absolute inset-0 cyber-grid-pattern opacity-25 pointer-events-none"></div>
+
+        {/* HEADER & TELEMETRY WIDGETS */}
+        <header className="gsap-topbar flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-8 relative z-10">
           <div>
-            <h2 className="text-3xl font-bold text-white mb-2">
-              {activeTab === 'keys' && "Key Vault"}
+            <h2 className="text-2xl sm:text-3xl font-black text-white font-display tracking-tight flex items-center gap-3">
+              {activeTab === 'keys' && "Machine Key Vault"}
               {activeTab === 'threat' && "AI Threat Intelligence & Auto-Containment"}
-              {activeTab === 'logs' && "Security Events"}
-              {activeTab === 'matrix' && "Identity & Access Control"}
-              {activeTab === 'docs' && "Documentation"}
-              {activeTab === 'nhi' && "Guardian Eye: Machine Auth"}
+              {activeTab === 'logs' && "Forensic Audit & WORM Logs"}
+              {activeTab === 'matrix' && "Identity Governance & Access Control"}
+              {activeTab === 'docs' && "Interactive API Documentation"}
+              {activeTab === 'nhi' && "Guardian Eye: Machine Attestation Lab"}
             </h2>
-            <p className="text-slate-400 text-sm">
-              Session ID: <span className="font-mono text-emerald-400">{user?._id?.substring(0, 8) || user?.id?.substring(0, 8) || "SESSION-ACTIVE"}</span>
+            <p className="text-slate-400 text-xs font-mono mt-1 flex items-center gap-2">
+              <span>ACTIVE SESSION:</span> 
+              <span className="text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 font-bold">
+                {user?._id?.substring(0, 10) || user?.id?.substring(0, 10) || "SYS-OPERATOR"}
+              </span>
+              <span>•</span>
+              <span className="text-cyan-400 uppercase font-semibold">{user?.role || "Developer"}</span>
             </p>
           </div>
 
-          {/* RUST IRON CORE WIDGET (LIVE) */}
-          <div className="flex gap-3">
-            {/* Widget 1: Integrity */}
-            <div className="bg-black/40 border border-slate-800 px-4 py-2 rounded-xl flex items-center gap-3 backdrop-blur-sm transition-all hover:border-emerald-500/30 group">
+          {/* RUST IRON CORE & TELEMETRY WIDGETS */}
+          <div className="flex flex-wrap gap-2.5">
+            {/* Widget 1: Rust Zeroize Attestation Heartbeat */}
+            <div className="bg-[#081124]/90 border border-emerald-500/25 px-3.5 py-2 rounded-xl flex items-center gap-3 backdrop-blur-xl shadow-md hover:border-emerald-500/50 transition-all">
               <div className="text-right">
-                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider group-hover:text-emerald-400 transition-colors">Iron Core</p>
-                <div className="flex items-center justify-end gap-2">
+                <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wider font-mono">Rust FFI Core</p>
+                <div className="flex items-center justify-end gap-1.5">
                   <span className="relative flex h-2 w-2">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-80"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400"></span>
                   </span>
                   <p className="text-emerald-400 font-mono text-xs font-bold">{systemStats.integrity}</p>
                 </div>
               </div>
-              <Activity size={18} className="text-emerald-500" />
+              <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                <Activity size={16} />
+              </div>
             </div>
 
-            {/* Widget 2: Load Stats */}
-            <div className="bg-black/40 border border-slate-800 px-4 py-2 rounded-xl flex items-center gap-3 backdrop-blur-sm">
+            {/* Widget 2: Node Load */}
+            <div className="bg-[#081124]/90 border border-cyan-500/20 px-3.5 py-2 rounded-xl flex items-center gap-3 backdrop-blur-xl shadow-md">
               <div className="text-right">
-                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Nodes / Load</p>
-                <p className="text-blue-400 font-mono text-xs font-bold transition-all duration-500">
-                  {systemStats.activeNodes} ACT / {systemStats.cpu}%
+                <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wider font-mono">Nodes / CPU</p>
+                <p className="text-cyan-400 font-mono text-xs font-bold">
+                  {systemStats.activeNodes} ACT • {systemStats.cpu}%
                 </p>
               </div>
-              <Cpu size={18} className="text-blue-500" />
+              <div className="p-2 rounded-lg bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
+                <Cpu size={16} />
+              </div>
             </div>
           </div>
         </header>
@@ -613,7 +644,7 @@ export function DashboardView({ user, keys, logs, onGenerateKey, onLogout, onDel
         {/* =======================
             🚀 TABS CONTENT
         ======================== */}
-        <div className="relative z-10">
+        <div className="gsap-content relative z-10">
 
           {/* --- TAB 0: AI THREAT INTEL --- */}
           {activeTab === 'threat' && (
@@ -626,19 +657,19 @@ export function DashboardView({ user, keys, logs, onGenerateKey, onLogout, onDel
 
               {/* ACCESS ELEVATION BANNER (For non-admins) */}
               {!isStrictAdmin && (
-                <div className="p-6 rounded-2xl bg-gradient-to-r from-blue-900/20 to-slate-900 border border-blue-500/20 flex justify-between items-center shadow-lg group">
+                <div className="p-6 rounded-2xl bg-[#0a1428]/80 border border-emerald-500/20 flex justify-between items-center backdrop-blur-xl group">
                   <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-xl bg-blue-500/10 flex items-center justify-center border border-blue-500/20 group-hover:scale-110 transition-transform">
-                      <Shield className="text-blue-400" size={24} />
+                    <div className="w-12 h-12 rounded-xl bg-emerald-500/10 flex items-center justify-center border border-emerald-500/20 group-hover:scale-110 transition-transform">
+                      <Shield className="text-emerald-400" size={24} />
                     </div>
                     <div>
-                      <h3 className="text-lg font-bold text-white tracking-tight">Need higher clearance?</h3>
+                      <h3 className="text-lg font-bold text-white tracking-tight font-display">Need higher clearance?</h3>
                       <p className="text-slate-400 text-sm">Apply for Auditor or Admin privileges to access forensic logs.</p>
                     </div>
                   </div>
                   <button
                     onClick={() => setRequestModal({ isOpen: true })}
-                    className="bg-blue-600 hover:bg-blue-500 text-white font-bold px-6 py-2.5 rounded-xl text-sm transition-all shadow-lg shadow-blue-900/20 flex items-center gap-2 group"
+                    className="bg-emerald-500/10 border border-emerald-500/30 hover:bg-emerald-500/20 text-emerald-400 font-bold px-6 py-2.5 rounded-xl text-sm transition-all flex items-center gap-2 group"
                   >
                     Request Elevation <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
                   </button>
@@ -675,22 +706,22 @@ export function DashboardView({ user, keys, logs, onGenerateKey, onLogout, onDel
               )}
 
               {/* Generator Card */}
-              <div className="p-6 rounded-2xl bg-gradient-to-r from-emerald-900/20 to-slate-900 border border-emerald-500/20 flex justify-between items-center shadow-lg">
+              <div className="p-6 rounded-2xl bg-[#0a1428]/80 border border-white/10 flex justify-between items-center backdrop-blur-xl">
                 <div>
-                  <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                  <h3 className="text-lg font-bold text-white flex items-center gap-2 tracking-tight font-display">
                     <Key size={20} className="text-emerald-400" /> Issue Credentials
                   </h3>
                   <p className="text-slate-400 text-sm mt-1">
                     Generate high-entropy keys for your microservices.
                   </p>
                 </div>
-                <button onClick={handleGenerateKeyInternal} className="bg-emerald-500 hover:bg-emerald-400 text-black font-bold px-4 py-2 rounded-lg text-sm transition-colors shadow-[0_0_20px_-5px_rgba(16,185,129,0.4)]">
+                <button onClick={handleGenerateKeyInternal} className="bg-emerald-500 hover:bg-emerald-400 text-black font-bold px-5 py-2.5 rounded-xl text-sm transition-all hover:-translate-y-0.5">
                   Generate Key
                 </button>
               </div>
 
               {/* Keys Table */}
-              <div className="bg-slate-900/50 border border-slate-800 rounded-xl overflow-hidden backdrop-blur-md shadow-2xl overflow-x-auto">
+              <div className="bg-[#0a1428]/60 border border-white/10 rounded-2xl overflow-hidden backdrop-blur-2xl overflow-x-auto">
                 <table className="w-full text-left text-sm">
                   <thead className="bg-slate-900/80 text-slate-500 uppercase font-mono text-xs">
                     <tr>
@@ -782,15 +813,15 @@ export function DashboardView({ user, keys, logs, onGenerateKey, onLogout, onDel
           {activeTab === 'logs' && (
             <div className="space-y-4 animate-[fade-in_0.3s]">
               <div className="flex gap-4">
-                <div className="bg-slate-900/50 border border-slate-800 p-4 rounded-xl flex-1">
-                  <p className="text-xs text-slate-500 uppercase font-bold">Log Integrity</p>
+                <div className="bg-[#0a1428]/80 border border-white/10 p-4 rounded-xl flex-1 backdrop-blur-md">
+                  <p className="text-xs text-slate-500 uppercase font-bold tracking-wider font-mono">Log Integrity</p>
                   <p className="text-emerald-400 font-mono text-sm font-bold flex items-center gap-2 mt-1">
                     <CheckCircle size={14} /> Verified (SHA-256)
                   </p>
                 </div>
-                <div className="bg-slate-900/50 border border-slate-800 p-4 rounded-xl flex-1">
-                  <p className="text-xs text-slate-500 uppercase font-bold">Retention Policy</p>
-                  <p className="text-blue-400 font-mono text-sm font-bold mt-1">90 Days / Immutable</p>
+                <div className="bg-[#0a1428]/80 border border-white/10 p-4 rounded-xl flex-1 backdrop-blur-md">
+                  <p className="text-xs text-slate-500 uppercase font-bold tracking-wider font-mono">Retention Policy</p>
+                  <p className="text-emerald-400 font-mono text-sm font-bold mt-1">90 Days / Immutable</p>
                 </div>
               </div>
 
@@ -801,7 +832,7 @@ export function DashboardView({ user, keys, logs, onGenerateKey, onLogout, onDel
                     value={logSearch}
                     onChange={(e) => setLogSearch(e.target.value)}
                     placeholder="Filter by action or description..."
-                    className="w-full bg-slate-900 border border-slate-800 rounded-lg px-4 py-2 text-xs focus:outline-none focus:border-emerald-500 transition-colors"
+                    className="w-full bg-[#050b18]/80 border border-white/10 rounded-lg px-4 py-2 text-xs focus:outline-none focus:border-emerald-500 transition-colors text-white"
                   />
                   {logSearch && (
                     <button
@@ -827,10 +858,10 @@ export function DashboardView({ user, keys, logs, onGenerateKey, onLogout, onDel
                 </div>
               </div>
 
-              <div className="bg-slate-950 border border-slate-800 rounded-xl overflow-hidden font-mono text-xs shadow-xl overflow-x-auto">
+              <div className="bg-[#0a1428]/60 border border-white/10 rounded-2xl overflow-hidden font-mono text-xs backdrop-blur-2xl overflow-x-auto">
                 <div className="min-w-[600px]">
                   {logs.filter(l => (l.action + l.desc).toLowerCase().includes(logSearch.toLowerCase())).map((log) => (
-                    <div key={log._id || log.id} className="p-4 border-b border-slate-900 flex items-center gap-4 hover:bg-slate-900/30 transition-colors">
+                    <div key={log._id || log.id} className="p-4 border-b border-white/5 flex items-center gap-4 hover:bg-emerald-500/5 transition-colors">
                       <span className="text-slate-500 min-w-[80px]">{formatDate(log.time || log.timestamp)}</span>
                       <span className={`w-32 font-bold ${log.action?.includes('DENIED') ? 'text-red-400' : 'text-emerald-400'}`}>
                         {log.action}
@@ -883,7 +914,7 @@ export function DashboardView({ user, keys, logs, onGenerateKey, onLogout, onDel
                 <div className="space-y-8">
                   {/* ACCESS REQUESTS SECTION */}
                   {accessRequests.length > 0 && (
-                    <div className="bg-slate-900/50 border border-amber-500/20 rounded-2xl shadow-xl overflow-hidden animate-[fade-in_0.5s]">
+                    <div className="bg-[#0a1428]/80 border border-amber-500/20 rounded-2xl backdrop-blur-xl overflow-hidden animate-[fade-in_0.5s]">
                       <div className="p-6 bg-amber-500/5 border-b border-amber-500/10 flex justify-between items-center">
                         <div>
                           <h3 className="text-lg font-bold text-amber-400 flex items-center gap-2">
@@ -941,23 +972,23 @@ export function DashboardView({ user, keys, logs, onGenerateKey, onLogout, onDel
                   )}
 
                   {/* USER ROLE MANAGEMENT SECTION */}
-                  <div className="bg-slate-900/50 border border-slate-800 rounded-2xl shadow-xl overflow-hidden">
+                  <div className="bg-[#0a1428]/80 border border-white/10 rounded-2xl backdrop-blur-xl overflow-hidden">
                     <div className="p-6 border-b border-white/5 flex justify-between items-center">
                       <div>
-                        <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                          <Users size={20} className="text-purple-400" />
+                        <h3 className="text-lg font-bold text-white flex items-center gap-2 tracking-tight font-display">
+                          <Users size={20} className="text-emerald-400" />
                           User Role Management
                         </h3>
-                        <p className="text-slate-400 text-sm">Assign privileges to registered identities.</p>
+                        <p className="text-slate-400 text-sm mt-1">Assign privileges to registered identities.</p>
                       </div>
-                      <div className="text-xs font-mono text-slate-500 bg-black/40 px-3 py-1 rounded border border-slate-700">
+                      <div className="text-xs font-mono text-slate-500 bg-black/40 px-3 py-1 rounded border border-white/5">
                         TOTAL USERS: {userList.length}
                       </div>
                     </div>
 
                     <div className="overflow-x-auto">
                       <table className="w-full text-sm border-separate border-spacing-0">
-                        <thead className="bg-slate-800/80 backdrop-blur-md text-slate-400 font-mono text-[10px] uppercase tracking-widest">
+                        <thead className="bg-black/20 backdrop-blur-md text-slate-400 font-mono text-[10px] uppercase tracking-widest">
                           <tr>
                             <th className="px-6 py-4 text-left font-bold border-b border-white/5">User Identity</th>
                             <th className="px-6 py-4 text-left font-bold border-b border-white/5">Secure Email</th>
@@ -965,7 +996,7 @@ export function DashboardView({ user, keys, logs, onGenerateKey, onLogout, onDel
                             <th className="px-6 py-4 text-right font-bold border-b border-white/5">Governance</th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-white/5 bg-slate-900/40">
+                        <tbody className="divide-y divide-white/5 bg-transparent">
                           {loadingUsers ? (
                             <tr><td colSpan="4" className="p-8 text-center text-slate-500"><Activity className="animate-spin inline mr-2" /> Loading Users...</td></tr>
                           ) : userList.map((u) => (
@@ -994,8 +1025,8 @@ export function DashboardView({ user, keys, logs, onGenerateKey, onLogout, onDel
 
                 {/* Protocol Simulation Controls */}
                 <div className="space-y-4">
-                  <div className="bg-slate-900/50 border border-slate-800 p-6 rounded-2xl backdrop-blur-md">
-                    <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                  <div className="bg-[#0a1428]/80 border border-white/10 p-6 rounded-2xl backdrop-blur-xl">
+                    <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2 font-display tracking-tight">
                       <Terminal size={18} className="text-emerald-400" /> Key Transmission
                     </h3>
                     <div className="space-y-4">
@@ -1023,7 +1054,7 @@ export function DashboardView({ user, keys, logs, onGenerateKey, onLogout, onDel
                       <button
                         onClick={handleNhiValidate}
                         disabled={!nhiInput || nhiStatus === 'validating'}
-                        className="w-full py-3 bg-emerald-500 hover:bg-emerald-400 text-black font-bold rounded-lg transition-all shadow-[0_0_20px_-5px_rgba(16,185,129,0.4)] disabled:opacity-50 flex items-center justify-center gap-2"
+                        className="w-full py-3 bg-emerald-500 hover:bg-emerald-400 text-black font-bold rounded-lg transition-all hover:-translate-y-0.5 disabled:opacity-50 flex items-center justify-center gap-2"
                       >
                         {nhiStatus === 'validating' ? <Activity className="animate-spin" size={18} /> : <Eye size={18} />}
                         INITIATE HANDSHAKE
@@ -1373,7 +1404,8 @@ function UserRow({ userRow, currentUser, onRoleChange, onDeleteUser }) {
 }
 
 // 2. Navigation Button Component
-function NavButton({ icon: Icon, label, active, onClick, badge }) {
+function NavButton({ icon, label, active, onClick, badge }) {
+  const Icon = icon;
   return (
     <button
       onClick={onClick}

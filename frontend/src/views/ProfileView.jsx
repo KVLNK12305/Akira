@@ -1,13 +1,14 @@
 import { useState, useRef } from "react";
 import {
     User, Camera, Key, Mail, Shield, ArrowLeft,
-    Check, Loader2, AlertTriangle, Eye, EyeOff, Upload, LogOut
+    Check, Loader2, AlertTriangle, Eye, EyeOff, Upload, LogOut,
+    XCircle, CheckCircle, Lock, ShieldCheck, Sparkles
 } from "lucide-react";
 import api, { API_URL } from "../api/axios";
 import { useAuth } from "../context/AuthContext";
 
 export default function ProfileView({ onBack, onLogout }) {
-    const { user, updateUser, logout } = useAuth();
+    const { user, updateUser } = useAuth();
     const fileInputRef = useRef(null);
 
     // Profile Update State
@@ -123,7 +124,7 @@ export default function ProfileView({ onBack, onLogout }) {
         if (!newPassword) return setPassMsg({ type: "error", text: "Enter a new password first" });
 
         // CLIENT-SIDE VALIDATION
-        const passRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.*[!@#$%^&*_\-\.]).{8,}$/;
+        const passRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.*[!@#$%^&*_\-.]).{8,}$/;
         if (!passRegex.test(newPassword)) {
             return setPassMsg({
                 type: "error",
@@ -473,6 +474,3 @@ function Toast({ msg, type }) {
         </div>
     );
 }
-
-// Need to import these specifically for the sub-components to work correctly or they must be defined in the same file
-import { XCircle, CheckCircle } from "lucide-react";
