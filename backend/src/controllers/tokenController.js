@@ -24,8 +24,15 @@ export const issueEphemeralToken = async (req, res) => {
     const fingerprint = hashFingerprint(rawKey);
     const parentKey = await APIKey.findOne({ keyFingerprint: fingerprint, isActive: true });
 
-    if (!parentKey || new Date() > new Date(parentKey.expiresAt)) {
+    if (!parentKey || !parentKey.isActive || new Date() > new Date(parentKey.expiresAt)) {
       return res.status(401).json({ error: 'Root credential invalid, expired, or revoked.' });
+    }
+
+    if (parentKey.status === 'QUARANTINED') {
+      return res.status(403).json({
+        error: 'ACCESS CONTAINED: Root credential has been QUARANTINED. Cannot issue ephemeral tokens.',
+        quarantineReason: parentKey.quarantineReason
+      });
     }
 
     // 2. Enforce scope narrowing (requested scopes must be subset of parent)
@@ -64,6 +71,7 @@ export const issueEphemeralToken = async (req, res) => {
         clientIP: req.ip,
         userAgent: req.headers['user-agent']
       },
+      riskScoreAtIssuance: parentKey.riskScore || 0,
       expiresAt
     });
 

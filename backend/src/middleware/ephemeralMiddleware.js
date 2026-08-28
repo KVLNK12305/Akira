@@ -1,5 +1,6 @@
 import jwt from 'jsonwebtoken';
 import EphemeralToken from '../models/EphemeralToken.js';
+import APIKey from '../models/APIKey.js';
 import { writeAuditLog } from '../utils/auditWriter.js';
 
 const TOKEN_SECRET = process.env.TOKEN_SECRET || process.env.JWT_SECRET;
@@ -38,13 +39,38 @@ export const verifyEphemeralToken = async (req, res, next) => {
       return res.status(401).json({ error: 'Token revoked or invalid.' });
     }
 
-    // 3. Attach machine identity to request
+    // 3. Verify Parent Key Status (Quarantine Check)
+    const parentKey = await APIKey.findById(tokenRecord.parentKey || decoded.sub);
+    if (parentKey && parentKey.status === 'QUARANTINED') {
+      // Auto-revoke this token immediately
+      tokenRecord.revoked = true;
+      await tokenRecord.save();
+
+      const quarantineDenialLog = {
+        action: 'EPHEMERAL_PARENT_QUARANTINED',
+        actorDisplay: `Machine: ${parentKey.name}`,
+        ipAddress: req.ip,
+        details: { parentKeyId: parentKey._id, jti: decoded.jti, reason: parentKey.quarantineReason }
+      };
+      await writeAuditLog(quarantineDenialLog);
+
+      return res.status(403).json({
+        error: 'ACCESS CONTAINED: Root credential for this token has been QUARANTINED due to anomalous risk.',
+        status: 'QUARANTINED',
+        parentKeyName: parentKey.name,
+        quarantineReason: parentKey.quarantineReason
+      });
+    }
+
+    // 4. Attach machine identity to request
     req.machine = {
       id: decoded.sub,
       owner: decoded.owner,
       scopes: decoded.scopes,
       jti: decoded.jti,
-      tokenType: 'ephemeral'
+      tokenType: 'ephemeral',
+      name: parentKey?.name || 'Machine-SVID',
+      riskScore: parentKey?.riskScore || 0
     };
 
     next();
@@ -55,3 +81,4 @@ export const verifyEphemeralToken = async (req, res, next) => {
     return res.status(401).json({ error: 'Token validation failed.' });
   }
 };
+

@@ -18,13 +18,81 @@ const verifyMachineIdentity = (req, res, next) => {
   return verifyEphemeralToken(req, res, next);  // New ephemeral path
 };
 
+// Helper to require specific machine scope
+const requireScope = (requiredScope) => (req, res, next) => {
+  if (!req.machine || !req.machine.scopes || !req.machine.scopes.includes(requiredScope)) {
+    return res.status(403).json({
+      error: `INSUFFICIENT_SCOPE: Missing required payment scope '${requiredScope}'`,
+      grantedScopes: req.machine?.scopes || []
+    });
+  }
+  next();
+};
+
 // Protected by API Key
 router.get('/secret-report', verifyMachineIdentity, (req, res) => {
   res.json({
     status: 'success',
     data: 'This is confidential data meant only for machines.',
     identity: `Authenticated as ${req.machine.name}`,
-    scopes: req.machine.scopes
+    scopes: req.machine.scopes,
+    riskScore: req.machine.riskScore
+  });
+});
+
+// 💳 PAYMENT INFRASTRUCTURE ENDPOINTS (Non-Human Machine Ops)
+router.post('/payment/charge', verifyMachineIdentity, requireScope('payment:initiate'), async (req, res) => {
+  const { amount, currency = 'USD', destinationAccount } = req.body;
+  
+  res.json({
+    success: true,
+    transactionId: `txn_${Date.now()}`,
+    status: 'AUTHORIZED',
+    amount,
+    currency,
+    destinationAccount,
+    processedBy: req.machine.name,
+    timestamp: new Date().toISOString()
+  });
+});
+
+router.post('/payment/settle', verifyMachineIdentity, requireScope('payment:settle'), async (req, res) => {
+  const { batchId = `batch_${Date.now()}`, count = 1 } = req.body;
+
+  res.json({
+    success: true,
+    batchId,
+    status: 'SETTLED',
+    recordsSettled: count,
+    settledBy: req.machine.name,
+    timestamp: new Date().toISOString()
+  });
+});
+
+router.post('/payment/refund', verifyMachineIdentity, requireScope('refund:process'), async (req, res) => {
+  const { transactionId, refundAmount, reason } = req.body;
+
+  res.json({
+    success: true,
+    refundId: `ref_${Date.now()}`,
+    originalTransaction: transactionId,
+    refundAmount,
+    reason,
+    processedBy: req.machine.name,
+    timestamp: new Date().toISOString()
+  });
+});
+
+router.get('/ledger/transactions', verifyMachineIdentity, requireScope('ledger:read'), async (req, res) => {
+  res.json({
+    success: true,
+    ledger: 'AKIRA-CORE-LEDGER-V1',
+    transactions: [
+      { id: 'txn_98234', amount: 4500.00, currency: 'USD', status: 'SETTLED' },
+      { id: 'txn_98235', amount: 120.50, currency: 'USD', status: 'SETTLED' },
+      { id: 'txn_98236', amount: 89000.00, currency: 'USD', status: 'AUTHORIZED' }
+    ],
+    auditedBy: req.machine.name
   });
 });
 
