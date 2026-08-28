@@ -1,294 +1,477 @@
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import gsap from "gsap";
 import { useGSAP } from "@gsap/react";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
-import { ShieldCheck, ChevronRight, Lock, Globe, Server, Activity, Database, Zap, Terminal, Code, Cpu, LogIn } from "lucide-react";
+import { 
+  ShieldCheck, ChevronRight, Lock, Globe, Server, Activity, 
+  Database, Zap, Terminal, Code, Cpu, LogIn, Sparkles, 
+  ShieldAlert, Fingerprint, Eye, ArrowRight, CheckCircle2,
+  Layers, Radio, FileCode2, Crosshair
+} from "lucide-react";
 
 // Register ScrollTrigger
 gsap.registerPlugin(ScrollTrigger);
 
-// 1. ADD 'onDocs' TO PROPS
+// Custom Scramble Hook
+const useScrambleText = (targetText, delay = 0) => {
+  const [text, setText] = useState("");
+  
+  useEffect(() => {
+    let frame = 0;
+    let timeout;
+    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()_+";
+    
+    const scramble = () => {
+      let result = "";
+      for (let i = 0; i < targetText.length; i++) {
+        if (frame >= i * 3) {
+          result += targetText[i];
+        } else {
+          result += chars[Math.floor(Math.random() * chars.length)];
+        }
+      }
+      setText(result);
+      if (frame < targetText.length * 3) {
+        frame++;
+        requestAnimationFrame(scramble);
+      }
+    };
+    
+    timeout = setTimeout(() => {
+      requestAnimationFrame(scramble);
+    }, delay);
+    
+    return () => clearTimeout(timeout);
+  }, [targetText, delay]);
+  
+  return text;
+};
+
 export function HeroView({ onStart, onDocs }) {
   const container = useRef();
-  const heroText = useRef();
+  const cursorRef = useRef();
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+  const [activeCodeTab, setActiveCodeTab] = useState("curl");
+  
+  const titlePart1 = useScrambleText("NON-HUMAN", 300);
+  const titlePart2 = useScrambleText("IDENTITY", 800);
+  const titlePart3 = useScrambleText("GATEWAY", 1300);
 
-  // Mouse Spotlight Logic
+  // Mouse Spotlight Logic (and cursor follower)
   const handleMouseMove = (e) => {
-    if (!container.current) return;
-    const rect = container.current.getBoundingClientRect();
-    setMousePos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+    setMousePos({ x: e.clientX, y: e.clientY });
   };
 
   useGSAP(() => {
-    // 1. INTRO ANIMATION
+    // Custom cursor follower — only on desktop
+    const cursor = cursorRef.current;
+    if (!cursor || window.matchMedia("(pointer: coarse)").matches) return;
+
+    gsap.set(cursor, { xPercent: -50, yPercent: -50, display: "flex" });
+    const xTo = gsap.quickTo(cursor, "x", { duration: 0.15, ease: "power3" });
+    const yTo = gsap.quickTo(cursor, "y", { duration: 0.15, ease: "power3" });
+
+    const onMove = (e) => { xTo(e.clientX); yTo(e.clientY); };
+    window.addEventListener("mousemove", onMove);
+    // Cleanup to prevent memory leak
+    return () => window.removeEventListener("mousemove", onMove);
+  }, { scope: container });
+
+  useGSAP(() => {
+    // Intro timeline
     const tl = gsap.timeline();
+    tl.from(".hero-badge", { x: -20, opacity: 0, duration: 0.8, ease: "power3.out" }, 0.2)
+      .from(".terminal-hud", { x: 40, opacity: 0, duration: 1, ease: "power4.out" }, 0.5)
+      .from(".floating-nav", { y: 40, opacity: 0, duration: 0.8, ease: "power3.out" }, 1.5)
+      .from(".hero-desc", { y: 20, opacity: 0, duration: 0.8, ease: "power3.out" }, 1.0);
 
-    tl.from(".nav-item", { y: -20, opacity: 0, stagger: 0.1, duration: 0.8, ease: "power2.out" })
-      .from(".hero-char", { y: 100, opacity: 0, stagger: 0.05, duration: 1, ease: "power4.out" }, "-=0.5")
-      .from(".hero-sub", { y: 20, opacity: 0, duration: 0.8 }, "-=0.5")
-      .from(".hero-badge", { scale: 0, opacity: 0, duration: 0.5, ease: "back.out(1.7)" }, "-=0.7");
+    // ScrollTrigger animations — use fromTo to prevent React Strict Mode glitches
+    const scrollDefaults = {
+      toggleActions: "play none none none",
+    };
 
-    // 2. PINNED HERO SCROLL
-    gsap.to(".hero-container", {
-      scrollTrigger: {
-        trigger: ".hero-container",
-        start: "top top",
-        end: "+=900",
-        scrub: true,
-        pin: true,
-      },
-      scale: 0.8,
-      opacity: 0,
-      filter: "blur(20px)",
-      y: -100
-    });
+    gsap.fromTo(".pipeline-card", 
+      { y: 50, opacity: 0 },
+      {
+        y: 0,
+        opacity: 1,
+        stagger: 0.15,
+        duration: 0.9,
+        ease: "power3.out",
+        scrollTrigger: { trigger: ".pipeline-grid", start: "top 85%", ...scrollDefaults }
+      }
+    );
 
-    // 3. ARCHITECTURE FLOW ANIMATION
-    if (document.querySelector('.packet') && document.querySelector('#path-line')) {
-      gsap.to(".packet", {
-        motionPath: {
-          path: "#path-line",
-          align: "#path-line",
-          alignOrigin: [0.5, 0.5],
-          autoRotate: true
-        },
-        duration: 2,
-        repeat: -1,
-        ease: "none"
-      });
-    }
+    gsap.fromTo([".dev-terminal-section .relative.group", ".dev-terminal-section .space-y-6"], 
+      { y: 50, opacity: 0 },
+      {
+        y: 0,
+        opacity: 1,
+        stagger: 0.2,
+        duration: 0.9,
+        ease: "power3.out",
+        scrollTrigger: { trigger: ".dev-terminal-section", start: "top 80%", ...scrollDefaults }
+      }
+    );
 
-    // 4. FEATURE CARDS REVEAL
-    gsap.from(".feature-card", {
-      scrollTrigger: {
-        trigger: ".features-grid",
-        start: "top 85%",
-        end: "top 20%",
-        scrub: 1,
-      },
-      y: 150,
-      opacity: 0,
-      stagger: 0.1,
-    });
+    gsap.fromTo(".feature-card", 
+      { y: 50, opacity: 0 },
+      {
+        y: 0,
+        opacity: 1,
+        stagger: 0.12,
+        duration: 0.9,
+        ease: "power3.out",
+        scrollTrigger: { trigger: ".features-grid", start: "top 85%", ...scrollDefaults }
+      }
+    );
 
+    gsap.fromTo(".bottom-cta-section", 
+      { y: 30, scale: 0.97, opacity: 0 },
+      {
+        y: 0,
+        scale: 1,
+        opacity: 1,
+        duration: 1,
+        ease: "power3.out",
+        scrollTrigger: { trigger: ".bottom-cta-section", start: "top 90%", ...scrollDefaults }
+      }
+    );
   }, { scope: container });
 
   return (
-    <div ref={container} onMouseMove={handleMouseMove} className="bg-slate-950 text-white overflow-x-hidden selection:bg-emerald-500/30 relative">
+    <div ref={container} onMouseMove={handleMouseMove} className="bg-[#020617] text-slate-100 overflow-x-hidden relative min-h-screen cursor-none">
+      
+      {/* 🔴 CUSTOM RADAR CURSOR */}
+      <div ref={cursorRef} className="custom-cursor fixed top-0 left-0 w-8 h-8 pointer-events-none z-[100] items-center justify-center mix-blend-screen" style={{ display: 'none' }}>
+        <div className="absolute inset-0 border border-emerald-500/50 rounded-full animate-ping opacity-20"></div>
+        <Crosshair className="w-6 h-6 text-emerald-400" strokeWidth={1} />
+      </div>
 
-      {/* 🟢 STICKY NAVBAR */}
-      <nav className="fixed top-0 left-0 w-full z-50 px-6 py-4 flex justify-between items-center bg-slate-950/50 backdrop-blur-md border-b border-white/5">
-        <div className="nav-item flex items-center gap-2 font-bold text-xl tracking-tight">
-          <div className="w-8 h-8 bg-emerald-500/10 rounded-lg flex items-center justify-center border border-emerald-500/20">
-            <ShieldCheck className="w-5 h-5 text-emerald-400" />
-          </div>
-          Secure<span className="text-emerald-400">Gateway</span>
+      {/* 🟢 FLOATING COMMAND PALETTE (Bottom Dock) */}
+      <div className="floating-nav fixed bottom-8 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 p-2 bg-[#0a1428]/80 backdrop-blur-2xl border border-white/10 rounded-2xl shadow-2xl">
+        <div className="flex items-center gap-3 px-4 font-bold text-lg tracking-tight cursor-pointer pr-6 border-r border-white/10">
+          <ShieldCheck className="w-5 h-5 text-emerald-400" />
+          <span className="font-display font-black text-white">AKIRA</span>
         </div>
-
-        <div className="flex items-center gap-4">
-          {/* 2. UPDATED ONCLICK TO 'onDocs' */}
-          <button onClick={onDocs} className="nav-item hidden md:flex text-slate-400 hover:text-white text-sm font-medium transition-colors">
-            Documentation
-          </button>
-          <button
-            onClick={onStart}
-            className="nav-item bg-white text-black px-5 py-2 rounded-full text-sm font-bold hover:bg-emerald-400 transition-colors flex items-center gap-2"
-          >
-            Sign In <LogIn size={14} />
-          </button>
-        </div>
-      </nav>
-
-      {/* 🟢 HERO SECTION (Pinned) */}
-      <section className="hero-container h-screen flex flex-col items-center justify-center relative z-20 pt-20">
-
-        {/* Living Background */}
-        <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[50vw] h-[50vw] bg-emerald-500/10 rounded-full blur-[100px] animate-pulse"></div>
-          {/* Animated Grid */}
-          <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808008_1px,transparent_1px),linear-gradient(to_bottom,#80808008_1px,transparent_1px)] bg-[size:60px_60px] [mask-image:radial-gradient(ellipse_at_center,black_40%,transparent_70%)]"></div>
-        </div>
-
-        {/* Dynamic Badge */}
-        <div className="hero-badge mb-8 px-4 py-1.5 rounded-full border border-emerald-500/30 bg-emerald-950/30 backdrop-blur-md flex items-center gap-2 text-emerald-400 text-xs font-mono uppercase tracking-widest shadow-[0_0_20px_rgba(16,185,129,0.2)]">
-          <span className="relative flex h-2 w-2">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-          </span>
-          System Online • v2.4.0
-        </div>
-
-        {/* Massive Typography */}
-        <h1 ref={heroText} className="text-6xl md:text-9xl font-black tracking-tighter text-center leading-[0.85] mb-8 relative z-10">
-          <div className="overflow-hidden flex justify-center gap-1 sm:gap-4">
-            {['S', 'E', 'C', 'U', 'R', 'E'].map((char, i) => (
-              <span key={i} className="hero-char inline-block bg-clip-text text-transparent bg-gradient-to-b from-white to-slate-400">{char}</span>
-            ))}
-          </div>
-          <div className="overflow-hidden flex justify-center gap-1 sm:gap-4 text-emerald-500 mix-blend-plus-lighter">
-            {['G', 'A', 'T', 'E', 'W', 'A', 'Y'].map((char, i) => (
-              <span key={i} className="hero-char inline-block">{char}</span>
-            ))}
-          </div>
-        </h1>
-
-        <p className="hero-sub text-xl md:text-2xl text-slate-400 max-w-2xl text-center leading-relaxed font-light mb-12">
-          The autonomous security layer for modern APIs. <br />
-          Deploy in seconds. Sleep soundly forever.
-        </p>
-
-        {/* ✅ PRIMARY CTA */}
+        
+        <button 
+          onClick={onDocs} 
+          className="flex items-center gap-2 text-slate-300 hover:text-emerald-300 text-sm font-medium transition-colors px-4 py-3 rounded-xl hover:bg-white/[0.04] cursor-none"
+        >
+          <Layers className="w-4 h-4" />
+          <span className="hidden sm:inline">Interactive Specs</span>
+          <span className="sm:hidden">Docs</span>
+        </button>
+        
         <button
           onClick={onStart}
-          className="hero-sub group relative px-10 py-5 bg-white text-black rounded-full font-bold text-lg hover:bg-emerald-400 transition-all duration-300 flex items-center gap-2 shadow-[0_0_40px_rgba(255,255,255,0.3)] hover:shadow-[0_0_60px_rgba(52,211,153,0.6)] hover:scale-105"
+          className="bg-emerald-500 hover:bg-emerald-400 text-black font-bold px-6 py-3 rounded-xl text-sm transition-all duration-300 flex items-center gap-2 shadow-[0_0_15px_rgba(16,185,129,0.3)] hover:shadow-[0_0_25px_rgba(16,185,129,0.5)] cursor-none hover:scale-105"
         >
-          Initialize System
-          <ChevronRight className="group-hover:translate-x-1 transition-transform" />
+          <Terminal size={15} className="stroke-[2.5]" />
+          <span>Launch Console</span>
         </button>
+      </div>
 
+      {/* 🟢 HERO SECTION (Grid HUD) */}
+      <section className="hero-container min-h-screen flex items-center justify-center relative z-20 pt-12 px-6 lg:px-12">
+        {/* Architectural Background Grid */}
+        <div className="absolute inset-0 pointer-events-none opacity-20">
+           <div className="absolute inset-0" style={{ backgroundImage: 'linear-gradient(rgba(255, 255, 255, 0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.1) 1px, transparent 1px)', backgroundSize: '40px 40px', backgroundPosition: 'center center' }}></div>
+           <div className="absolute inset-0 bg-gradient-to-b from-[#020617] via-transparent to-[#020617]"></div>
+        </div>
+
+        <div className="w-full max-w-7xl grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 relative z-10 pt-20 pb-40">
+          
+          {/* Left: Asymmetric Typography */}
+          <div className="col-span-1 lg:col-span-7 flex flex-col justify-center items-start pt-12 lg:pt-0">
+            
+            <div className="hero-badge mb-6 px-4 py-1.5 rounded-sm border-l-2 border-emerald-500 bg-[#0a1428]/80 backdrop-blur-md flex items-center gap-2.5 text-emerald-400 text-xs font-mono uppercase">
+              <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span>
+              <span>SYSTEM.AUTHORIZATION // ONLINE</span>
+            </div>
+
+            <h1 className="text-5xl sm:text-7xl lg:text-8xl xl:text-[7rem] font-black tracking-tighter leading-[0.85] font-display text-white uppercase text-left break-words w-full">
+              <div className="text-white min-h-[1em]">{titlePart1}</div>
+              <div className="text-slate-400 min-h-[1em]">{titlePart2}</div>
+              <div className="text-slate-600 min-h-[1em]">{titlePart3}</div>
+            </h1>
+
+            <p className="hero-desc mt-8 text-base sm:text-lg text-slate-400 max-w-xl leading-relaxed font-mono">
+              [INIT] Autonomous defense layer for machine workloads.
+              <br/><br/>
+              <span className="text-emerald-400">► Zero-Allocation Rust FFI Attestation.</span>
+              <br/>
+              <span className="text-emerald-400">► 8-Signal AI Anomaly Containment.</span>
+            </p>
+          </div>
+
+          {/* Right: Live Terminal HUD */}
+          <div className="col-span-1 lg:col-span-5 flex items-center justify-center terminal-hud w-full">
+            <div className="w-full relative max-w-md mx-auto">
+              <div className="absolute -inset-0.5 bg-emerald-500/10 blur-xl rounded-lg"></div>
+              <div className="bg-[#050b14]/90 border border-emerald-500/30 rounded-lg p-5 font-mono text-xs sm:text-sm shadow-2xl relative overflow-hidden h-[450px] flex flex-col justify-end backdrop-blur-xl">
+                <div className="absolute top-0 left-0 w-full px-4 py-3 bg-[#0a1428]/80 border-b border-emerald-500/20 flex justify-between items-center backdrop-blur-md">
+                  <span className="text-emerald-400/50 text-[10px] uppercase">akira_attestation_node_88</span>
+                  <div className="flex gap-1.5">
+                    <div className="w-2 h-2 rounded-full bg-emerald-500/50"></div>
+                    <div className="w-2 h-2 rounded-full bg-emerald-500/50"></div>
+                    <div className="w-2 h-2 rounded-full bg-emerald-500/50"></div>
+                  </div>
+                </div>
+                
+                <div className="space-y-3 opacity-90 mt-12 overflow-hidden">
+                  <p className="text-slate-500">&gt; Establishing zero-trust handshake...</p>
+                  <p className="text-emerald-400">&gt; SUCCESS: TLS Mutual Auth Verified.</p>
+                  <p className="text-slate-500">&gt; Awaiting high-entropy payload...</p>
+                  <p className="text-cyan-400">&gt; INCOMING: request from 192.168.1.104</p>
+                  <p className="text-slate-500">&gt; Invoking zeroize::zeroize() ...</p>
+                  <p className="text-emerald-400">&gt; ATTESTATION PASSED. Issuing SVID Token.</p>
+                  <p className="text-emerald-400 animate-pulse font-bold mt-4">&gt; _</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </section>
 
-      {/* 🔵 VISUAL FLOW SECTION */}
-      <section className="py-24 relative z-20 border-t border-white/5 bg-slate-950/80 backdrop-blur-3xl">
-        <div className="max-w-6xl mx-auto px-6 grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
-
-          {/* Left: Description */}
-          <div>
-            <div className="w-12 h-12 rounded-xl bg-blue-500/10 flex items-center justify-center mb-6">
-              <Activity className="text-blue-400" />
+      {/* 🔵 ARCHITECTURE PIPELINE FLOW VISUALIZER */}
+      <section className="py-28 relative z-20 border-t border-white/[0.06] bg-[#030816]/90 backdrop-blur-3xl">
+        <div className="max-w-6xl mx-auto px-6">
+          <div className="text-center mb-16">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 text-xs font-mono uppercase tracking-wider mb-3">
+              <Activity className="w-3.5 h-3.5" /> High-Entropy Machine Attestation
             </div>
-            <h2 className="text-4xl font-bold mb-6">See the traffic.<br /><span className="text-blue-400">Control the flow.</span></h2>
-            <p className="text-slate-400 text-lg leading-relaxed mb-8">
-              Visualise every request in real-time. Our engine inspects, decrypts, and validates tokens before they ever reach your core infrastructure.
+            <h2 className="text-3xl md:text-5xl font-extrabold tracking-tight font-display text-white mb-4">
+              Cryptographic Execution Pipeline
+            </h2>
+            <p className="text-slate-400 text-base md:text-lg max-w-2xl mx-auto">
+              Every request is verified against learned machine baselines, decrypted in zero-allocation Rust memory, and issued short-lived SVID tokens.
             </p>
+          </div>
 
-            <div className="space-y-4">
-              <FlowItem label="Latency" value="12ms" />
-              <FlowItem label="Encryption" value="AES-256" />
-              <FlowItem label="Uptime" value="99.99%" />
+          {/* Interactive Pipeline Diagram */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 relative pipeline-grid">
+            <PipelineCard 
+              step="01" 
+              title="Workload Handshake" 
+              desc="Machine exchanges base64 high-entropy API key or client certificate via Mutual TLS."
+              tag="HMAC-SHA256"
+              icon={Globe}
+              glowColor="emerald"
+            />
+            <PipelineCard 
+              step="02" 
+              title="Rust Core Attestation" 
+              desc="Zero-allocation Bun-FFI decodes payload, verifies fingerprint, and immediately wipes plaintext from RAM."
+              tag="zeroize::zeroize()"
+              icon={Cpu}
+              glowColor="cyan"
+            />
+            <PipelineCard 
+              step="03" 
+              title="8-Signal AI Sentinel" 
+              desc="Evaluates IP deviation, velocity spikes, scope escalations, and payment risk thresholds."
+              tag="Real-Time ML"
+              icon={ShieldAlert}
+              glowColor="violet"
+            />
+            <PipelineCard 
+              step="04" 
+              title="Ephemeral SVID Token" 
+              desc="Issues 60-second scoped credential with client IP attestation and immutable audit logging."
+              tag="RFC 8705 PoP"
+              icon={Fingerprint}
+              glowColor="emerald"
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* 🟠 LIVE DEVELOPER INTERACTION TERMINAL */}
+      <section className="py-28 relative z-20 border-t border-white/[0.06] bg-[#020617] dev-terminal-section">
+        <div className="max-w-6xl mx-auto px-6 grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+
+          {/* Left: Terminal Console */}
+          <div className="relative group">
+            <div className="absolute -inset-1 bg-emerald-500/10 rounded-2xl blur-lg opacity-50 group-hover:opacity-90 transition duration-500"></div>
+            
+            <div className="relative bg-[#070e1c] rounded-2xl border border-slate-700/70 shadow-[0_20px_50px_rgba(0,0,0,0.8)] overflow-hidden font-mono text-xs md:text-sm">
+              {/* Terminal Window Header */}
+              <div className="flex items-center justify-between px-4 py-3 bg-[#0a1428] border-b border-slate-800">
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-rose-500/80"></div>
+                  <div className="w-3 h-3 rounded-full bg-amber-500/80"></div>
+                  <div className="w-3 h-3 rounded-full bg-emerald-500/80"></div>
+                  <span className="ml-2 text-slate-400 text-xs">akira-client-handshake.sh</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <button 
+                    onClick={() => setActiveCodeTab("curl")} 
+                    className={`px-2 py-0.5 rounded text-[11px] ${activeCodeTab === "curl" ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30" : "text-slate-400 hover:text-white"}`}
+                  >
+                    cURL
+                  </button>
+                  <button 
+                    onClick={() => setActiveCodeTab("node")} 
+                    className={`px-2 py-0.5 rounded text-[11px] ${activeCodeTab === "node" ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30" : "text-slate-400 hover:text-white"}`}
+                  >
+                    Node.js
+                  </button>
+                </div>
+              </div>
+
+              {/* Code Snippet Display */}
+              <div className="p-5 text-slate-300 space-y-2 overflow-x-auto">
+                {activeCodeTab === "curl" ? (
+                  <>
+                    <p className="text-slate-500"># 1. Exchange Root Machine Key for Ephemeral Token</p>
+                    <p><span className="text-cyan-400">curl</span> -X POST https://api.akira.soc/v1/auth/token \</p>
+                    <p className="pl-4">-H <span className="text-emerald-300">"X-AKIRA-MACHINE-KEY: ak_live_9f82e7..."</span> \</p>
+                    <p className="pl-4">-d <span className="text-amber-300">'&#123;"scope": "payment:settle", "ttl": 60&#125;'</span></p>
+                    <p>&nbsp;</p>
+                    <p className="text-slate-500"># 2. Rust Zeroize Response &lt; 1ms</p>
+                    <p className="text-emerald-400">&#123;</p>
+                    <p className="pl-4 text-slate-300">"status": <span className="text-emerald-300">"ATTESTATION_PASSED"</span>,</p>
+                    <p className="pl-4 text-slate-300">"svid_token": <span className="text-cyan-300">"eyJhZ3kiOiJha2lyYS..."</span>,</p>
+                    <p className="pl-4 text-slate-300">"risk_score": <span className="text-emerald-400">12</span>,</p>
+                    <p className="pl-4 text-slate-300">"zeroized": <span className="text-amber-400">true</span></p>
+                    <p className="text-emerald-400">&#125;</p>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-slate-500">// Initialize Zero-Trust Client</p>
+                    <p><span className="text-violet-400">import</span> &#123; AkiraSentinel &#125; <span className="text-violet-400">from</span> <span className="text-emerald-300">'@akira/sentinel'</span>;</p>
+                    <p>&nbsp;</p>
+                    <p><span className="text-cyan-400">const</span> sentinel = <span className="text-violet-400">new</span> AkiraSentinel(&#123;</p>
+                    <p className="pl-4">rootKey: process.env.<span className="text-amber-300">AKIRA_KEY</span>,</p>
+                    <p className="pl-4">autoRotate: <span className="text-cyan-400">true</span>,</p>
+                    <p className="pl-4">attestation: <span className="text-emerald-300">'rust-zeroize'</span></p>
+                    <p>&#125;);</p>
+                    <p>&nbsp;</p>
+                    <p><span className="text-violet-400">await</span> sentinel.protectPaymentPipeline();</p>
+                    <p className="text-emerald-400 animate-pulse"># Live Sentinel Active</p>
+                  </>
+                )}
+              </div>
             </div>
           </div>
 
-          {/* Right: The Diagram Animation */}
-          <div className="relative h-[400px] w-full bg-slate-900/50 rounded-3xl border border-slate-800 p-8 flex items-center justify-center overflow-hidden">
-            {/* The SVG Diagram */}
-            <div className="relative z-10 w-full max-w-md flex justify-between items-center">
-              <Node icon={Globe} label="User" color="text-slate-400" />
+          {/* Right: Feature Highlights */}
+          <div className="space-y-6">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-mono uppercase tracking-wider">
+              <Zap className="w-3.5 h-3.5" /> High-Performance SOC
+            </div>
+            <h2 className="text-3xl md:text-4xl font-black font-display tracking-tight text-white">
+              Built for Developers.<br />
+              <span className="text-emerald-400">Fortified for Zero-Trust SecOps.</span>
+            </h2>
+            <p className="text-slate-400 text-base md:text-lg leading-relaxed">
+              Integrate military-grade encryption, HMAC WORM audit logging, and AI automated containment in just 2 lines of code.
+            </p>
 
-              {/* The Path */}
-              <div className="flex-1 h-[2px] bg-slate-800 relative mx-4 overflow-hidden">
-                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-blue-500 to-transparent w-[50%] animate-[shimmer_2s_infinite_linear]"></div>
-              </div>
-
-              <div className="relative group">
-                <div className="absolute -inset-4 bg-emerald-500/20 rounded-full blur-xl animate-pulse"></div>
-                <Node icon={ShieldCheck} label="Gateway" color="text-emerald-400" bg="bg-emerald-950 border-emerald-500/50" />
-              </div>
-
-              {/* The Path */}
-              <div className="flex-1 h-[2px] bg-slate-800 relative mx-4 overflow-hidden">
-                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-emerald-500 to-transparent w-[50%] animate-[shimmer_2s_infinite_linear] delay-75"></div>
-              </div>
-
-              <Node icon={Database} label="Server" color="text-purple-400" />
+            <div className="space-y-3 pt-2">
+              <FeatureCheck text="Automatic Zero-Allocation Rust Memory Zeroization" />
+              <FeatureCheck text="Instant Ephemeral Token Revocation & Isolation on Anomaly Spike" />
+              <FeatureCheck text="Cryptographic Proof-of-Possession (PoP) & IP Attestation" />
+              <FeatureCheck text="Immutable HMAC-SHA256 WORM Audit Trails with PDF Export" />
             </div>
 
-            {/* Grid Overlay */}
-            <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:20px_20px]"></div>
+            <div className="pt-4">
+              <button 
+                onClick={onDocs}
+                className="text-emerald-400 hover:text-emerald-300 font-mono text-sm inline-flex items-center gap-2 group font-semibold"
+              >
+                <span>Explore Full Documentation & SDKs</span>
+                <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+              </button>
+            </div>
           </div>
 
         </div>
       </section>
 
-      {/* 🟠 DEVELOPER EXPERIENCE SECTION */}
-      <section className="py-32 relative z-20">
-        <div className="max-w-6xl mx-auto px-6 grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
-
-          {/* Left: The Terminal */}
-          <div className="perspective-1000 group">
-            <div className="relative bg-[#0d1117] rounded-xl border border-slate-800 shadow-2xl p-6 font-mono text-sm transform transition-transform duration-500 group-hover:rotate-y-6 group-hover:rotate-x-6">
-              {/* Window Controls */}
-              <div className="flex gap-2 mb-4">
-                <div className="w-3 h-3 rounded-full bg-red-500"></div>
-                <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
-                <div className="w-3 h-3 rounded-full bg-green-500"></div>
-              </div>
-
-              {/* Code */}
-              <div className="space-y-2 text-slate-300">
-                <p><span className="text-pink-400">import</span> &#123; SecureGateway &#125; <span className="text-pink-400">from</span> <span className="text-green-400">'@secure/sdk'</span>;</p>
-                <p>&nbsp;</p>
-                <p><span className="text-blue-400">const</span> gateway = <span className="text-pink-400">new</span> SecureGateway(&#123;</p>
-                <p className="pl-4">apiKey: <span className="text-green-400">process.env.API_KEY</span>,</p>
-                <p className="pl-4">encryption: <span className="text-green-400">'AES-256'</span>,</p>
-                <p className="pl-4">monitor: <span className="text-orange-400">true</span></p>
-                <p>&#125;);</p>
-                <p>&nbsp;</p>
-                <p className="text-slate-500">// Initialize Protection</p>
-                <p><span className="text-purple-400">await</span> gateway.connect();</p>
-                <p className="text-emerald-400 animate-pulse">_</p>
-              </div>
-
-              {/* Glow Reflection */}
-              <div className="absolute top-0 right-0 w-full h-full bg-gradient-to-bl from-white/5 to-transparent pointer-events-none"></div>
-            </div>
-          </div>
-
-          {/* Right: Copy */}
-          <div className="order-first lg:order-last text-right">
-            <div className="w-12 h-12 rounded-xl bg-orange-500/10 flex items-center justify-center mb-6 ml-auto">
-              <Terminal className="text-orange-400" />
-            </div>
-            <h2 className="text-4xl font-bold mb-6">Built for Developers.<br /><span className="text-orange-400">Loved by SecOps.</span></h2>
-            <p className="text-slate-400 text-lg leading-relaxed mb-8">
-              Integration so simple, it feels like cheating. Paste our SDK snippet and instantly gain Role-Based Access Control and Audit Logging.
-            </p>
-            {/* 3. UPDATED ONCLICK TO 'onDocs' */}
-            <button onClick={onDocs} className="text-orange-400 font-mono text-sm hover:text-orange-300 flex items-center gap-2 justify-end group ml-auto">
-              Read Documentation <ChevronRight size={14} className="group-hover:translate-x-1 transition-transform" />
-            </button>
-          </div>
-
-        </div>
-      </section>
-
-      {/* 🟣 FEATURES GRID (Spotlight Effect) */}
-      <section className="features-grid min-h-screen py-32 px-6 relative z-20 bg-slate-950">
+      {/* 🟣 BENTO FEATURES GRID */}
+      <section className="features-grid py-28 px-6 relative z-20 bg-[#030817] border-t border-white/[0.06]">
         <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-20">
-            <h2 className="text-4xl md:text-5xl font-bold mb-6">Everything you need.</h2>
-            <p className="text-slate-400">No bloat. Just security.</p>
+          <div className="text-center mb-16">
+            <h2 className="text-3xl md:text-5xl font-extrabold tracking-tight font-display mb-4 text-white">
+              Enterprise Defense Capabilities
+            </h2>
+            <p className="text-slate-400 max-w-xl mx-auto text-base">
+              Hardened cryptography meets adaptive machine learning for continuous infrastructure resilience.
+            </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 group/grid">
-            {/* Mouse Spotlight Layer */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Spotlight Follower */}
             <div
-              className="pointer-events-none fixed inset-0 z-30 transition-opacity duration-300"
+              className="pointer-events-none fixed inset-0 z-30"
               style={{
-                background: `radial-gradient(600px circle at ${mousePos.x}px ${mousePos.y}px, rgba(16,185,129,0.06), transparent 40%)`
+                background: `radial-gradient(600px circle at ${mousePos.x}px ${mousePos.y}px, rgba(16,185,129,0.06), transparent 40%)`,
+                transition: 'background 0.15s ease-out'
               }}
             />
 
-            <BentoCard icon={Lock} title="AES-256 Encryption" desc="Data at rest is mathematically impossible to crack." />
-            <BentoCard icon={Globe} title="Edge Network" desc=" deployed across 35 regions for <10ms latency." />
-            <BentoCard icon={Server} title="Audit Logs" desc="Forensic-grade logging for every API request." />
-            <BentoCard icon={Database} title="Secure Storage" desc="NIST-compliant salted hashing (Argon2id)." />
-            <BentoCard icon={Cpu} title="Rate Limiting" desc="Prevent DDoS attacks with intelligent throttling." />
-            <BentoCard icon={Code} title="Type-Safe SDK" desc="Full TypeScript support out of the box." />
+            <BentoCard 
+              icon={Lock} 
+              title="AES-256-GCM AEAD" 
+              desc="Authenticated encryption with per-key IVs, tamper resistance, and fingerprint indexing." 
+              badge="HARDWARE GRADE"
+            />
+            <BentoCard 
+              icon={ShieldAlert} 
+              title="8-Signal AI Anomaly Engine" 
+              desc="Live scoring of velocity spikes, IP deviations, and sensitive payment scope escalations." 
+              badge="AUTOMATED CONTAINMENT"
+            />
+            <BentoCard 
+              icon={FileCode2} 
+              title="HMAC WORM Audit Logs" 
+              desc="Cryptographically sealed audit logs with forensic PDF and SIEM JSON extraction." 
+              badge="NIST COMPLIANT"
+            />
+            <BentoCard 
+              icon={Database} 
+              title="Argon2id Human RBAC" 
+              desc="GPU-resistant password hashing, 6-digit MFA OTPs, and access elevation workflows." 
+              badge="ZERO-TRUST CONTROL"
+            />
+            <BentoCard 
+              icon={Cpu} 
+              title="Rust Memory Safety" 
+              desc="FFI attestation executing in native memory with instant zeroization of secrets." 
+              badge="ZERO-ALLOCATION"
+            />
+            <BentoCard 
+              icon={Radio} 
+              title="Real-Time Threat Radar" 
+              desc="Live telemetry streams, threat heatmaps, and interactive attack defense simulator." 
+              badge="SOC COMMAND"
+            />
           </div>
 
-          {/* 🟢 BOTTOM CTA (Catches User at End) */}
-          <div className="mt-32 p-12 rounded-3xl bg-gradient-to-r from-emerald-900/30 to-blue-900/30 border border-white/10 text-center relative overflow-hidden">
-            <div className="absolute inset-0 bg-slate-900/40 opacity-20"></div>
-            <h2 className="text-3xl md:text-5xl font-bold mb-6 relative z-10">Ready to secure your world?</h2>
-            <button
-              onClick={onStart}
-              className="relative z-10 px-10 py-5 bg-white text-black rounded-full font-bold text-lg hover:bg-emerald-400 transition-all shadow-lg hover:shadow-emerald-500/50"
-            >
-              Start Integration Now
-            </button>
+          {/* 🟢 BOTTOM CALL TO ACTION */}
+          <div className="mt-28 p-10 sm:p-14 rounded-3xl bg-[#0a1428]/80 border border-emerald-500/20 text-center relative overflow-hidden backdrop-blur-xl bottom-cta-section">
+            <div className="absolute inset-0 cyber-grid-pattern opacity-30"></div>
+            <div className="relative z-10 max-w-2xl mx-auto space-y-6">
+              <h2 className="text-3xl md:text-5xl font-black tracking-tight font-display text-white">
+                Fortify Your Machine Infrastructure Today.
+              </h2>
+              <p className="text-slate-300 text-base md:text-lg">
+                Protect sensitive payment scopes, microservices, and AI agents with real-time non-human identity governance.
+              </p>
+              <div className="pt-2">
+                <button
+                  onClick={onStart}
+                  className="px-9 py-4 bg-gradient-to-r from-emerald-400 via-teal-400 to-cyan-400 hover:from-emerald-300 hover:to-cyan-300 text-slate-950 font-extrabold rounded-2xl text-base transition-all duration-300 shadow-[0_0_35px_rgba(16,185,129,0.6)] hover:scale-105"
+                >
+                  Access AKIRA Gateway Console
+                </button>
+              </div>
+            </div>
           </div>
+
         </div>
       </section>
 
@@ -298,37 +481,75 @@ export function HeroView({ onStart, onDocs }) {
 
 // --- SUBCOMPONENTS ---
 
-function Node({ icon: Icon, label, color, bg = "bg-slate-900 border-slate-700" }) {
+function StatBox({ label, value, color, icon }) {
+  const Icon = icon;
   return (
-    <div className={`flex flex-col items-center gap-3 relative z-10`}>
-      <div className={`w-16 h-16 rounded-2xl ${bg} border flex items-center justify-center shadow-xl`}>
-        <Icon className={`w-8 h-8 ${color}`} />
+    <div className="p-3 rounded-xl bg-[#0b1428]/60 border border-white/[0.05] flex items-center gap-3">
+      <div className="p-2 rounded-lg bg-white/[0.04] text-emerald-400">
+        <Icon className="w-4 h-4" />
       </div>
-      <span className="text-xs font-mono uppercase tracking-wider text-slate-500">{label}</span>
+      <div>
+        <p className="text-[10px] uppercase font-mono text-slate-400 tracking-wider">{label}</p>
+        <p className={`font-mono text-xs sm:text-sm font-bold ${color}`}>{value}</p>
+      </div>
     </div>
-  )
+  );
 }
 
-function FlowItem({ label, value }) {
+function PipelineCard({ step, title, desc, tag, icon }) {
+  const Icon = icon;
   return (
-    <div className="flex justify-between items-center border-b border-slate-800 pb-3">
-      <span className="text-slate-500">{label}</span>
-      <span className="font-mono text-emerald-400">{value}</span>
+    <div className="pipeline-card p-6 rounded-2xl bg-[#091122]/70 border border-white/[0.08] hover:border-emerald-500/30 transition-all duration-300 flex flex-col justify-between group shadow-xl">
+      <div>
+        <div className="flex items-center justify-between mb-4">
+          <span className="text-xs font-mono font-bold text-slate-400 bg-white/[0.05] px-2.5 py-1 rounded-lg">
+            {step}
+          </span>
+          <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 group-hover:scale-110 transition-transform">
+            <Icon className="w-5 h-5" />
+          </div>
+        </div>
+        <h3 className="font-bold text-base text-white mb-2 font-display">{title}</h3>
+        <p className="text-xs text-slate-400 leading-relaxed mb-4">{desc}</p>
+      </div>
+      <div className="pt-3 border-t border-white/[0.06]">
+        <span className="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+          {tag}
+        </span>
+      </div>
     </div>
-  )
+  );
 }
 
-function BentoCard({ icon: Icon, title, desc }) {
+function BentoCard({ icon, title, desc, badge }) {
+  const Icon = icon;
   return (
-    <div className="feature-card relative p-8 rounded-3xl bg-slate-900/40 border border-white/5 overflow-hidden hover:bg-slate-900/60 transition-colors group">
-      {/* Border Reveal on Hover */}
-      <div className="absolute inset-0 border border-emerald-500/0 group-hover:border-emerald-500/20 rounded-3xl transition-colors pointer-events-none"></div>
-
-      <div className="w-12 h-12 rounded-lg bg-white/5 flex items-center justify-center mb-6 text-slate-200 group-hover:text-emerald-400 group-hover:scale-110 transition-all">
-        <Icon size={24} />
+    <div className="feature-card relative p-7 rounded-2xl bg-[#081020]/75 border border-white/[0.07] overflow-hidden hover:border-emerald-500/30 hover:bg-[#0c162d]/80 transition-all duration-300 group shadow-xl flex flex-col justify-between">
+      <div>
+        <div className="flex items-center justify-between mb-5">
+          <div className="w-11 h-11 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 group-hover:scale-110 transition-transform">
+            <Icon size={22} />
+          </div>
+          {badge && (
+            <span className="text-[9px] font-mono font-semibold tracking-wider text-slate-400 bg-white/[0.05] px-2 py-0.5 rounded border border-white/[0.06]">
+              {badge}
+            </span>
+          )}
+        </div>
+        <h3 className="text-lg font-bold mb-2 text-white font-display">{title}</h3>
+        <p className="text-slate-400 text-xs leading-relaxed">{desc}</p>
       </div>
-      <h3 className="text-xl font-bold mb-3 text-slate-100">{title}</h3>
-      <p className="text-slate-400 text-sm leading-relaxed">{desc}</p>
     </div>
-  )
+  );
+}
+
+function FeatureCheck({ text }) {
+  return (
+    <div className="flex items-center gap-3 text-slate-300 text-sm">
+      <div className="w-5 h-5 rounded-full bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0">
+        <CheckCircle2 className="w-3.5 h-3.5" />
+      </div>
+      <span>{text}</span>
+    </div>
+  );
 }
