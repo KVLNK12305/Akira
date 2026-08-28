@@ -4,12 +4,13 @@ import {
   CheckCircle, XCircle, LogOut, Fingerprint, AlertTriangle,
   Cpu, Thermometer, ChevronDown, Save, Bell, Trash2, Book,
   RefreshCw, Eye, Terminal, ArrowRight, Menu, X, Download,
-  FileJson, FileCode, FileBarChart
+  FileJson, FileCode, FileBarChart, Zap, ShieldAlert, Sliders, Play
 } from "lucide-react";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import api, { API_URL } from "../api/axios";
 import { DocumentationView } from "./DocumentationView";
+import { ThreatIntelView } from "./ThreatIntelView";
 
 // --- HELPER FUNCTIONS ---
 
@@ -78,6 +79,11 @@ export function DashboardView({ user, keys, logs, onGenerateKey, onLogout, onDel
 
   // NOTIFICATION STATE
   const [notification, setNotification] = useState(null);
+
+  // KEY GENERATOR MODAL STATE
+  const [isGenKeyModalOpen, setIsGenKeyModalOpen] = useState(false);
+  const [newKeyName, setNewKeyName] = useState("");
+  const [newKeyScopes, setNewKeyScopes] = useState(["read:data", "payment:initiate"]);
 
   // ACCESS REQUEST STATE
   const [accessRequests, setAccessRequests] = useState([]);
@@ -366,11 +372,22 @@ export function DashboardView({ user, keys, logs, onGenerateKey, onLogout, onDel
     });
   };
 
-  const handleGenerateKeyInternal = async () => {
-    const key = await onGenerateKey("Service Key", ["read:data"]);
+  const handleGenerateKeyInternal = () => {
+    setNewKeyName("");
+    setNewKeyScopes(["payment:initiate", "read:data"]);
+    setIsGenKeyModalOpen(true);
+  };
+
+  const handleConfirmGenerateKey = async (e) => {
+    e?.preventDefault?.();
+    const finalName = newKeyName.trim() || "Payment-Worker-Node";
+    const finalScopes = newKeyScopes.length > 0 ? newKeyScopes : ["read:data"];
+    
+    setIsGenKeyModalOpen(false);
+    const key = await onGenerateKey(finalName, finalScopes);
     if (key) {
       setRevealedKey(key);
-      notify("New Credentials Issued!", "success");
+      notify(`New Credentials Issued for ${finalName}!`, "success");
     }
   };
 
@@ -462,6 +479,13 @@ export function DashboardView({ user, keys, logs, onGenerateKey, onLogout, onDel
             onClick={() => { setActiveTab('keys'); setIsMobileMenuOpen(false); }}
           />
           <NavButton
+            icon={Zap}
+            label="AI Threat Intel"
+            active={activeTab === 'threat'}
+            badge="LIVE"
+            onClick={() => { setActiveTab('threat'); setIsMobileMenuOpen(false); }}
+          />
+          <NavButton
             icon={FileText}
             label="Audit Logs"
             active={activeTab === 'logs'}
@@ -545,6 +569,7 @@ export function DashboardView({ user, keys, logs, onGenerateKey, onLogout, onDel
           <div>
             <h2 className="text-3xl font-bold text-white mb-2">
               {activeTab === 'keys' && "Key Vault"}
+              {activeTab === 'threat' && "AI Threat Intelligence & Auto-Containment"}
               {activeTab === 'logs' && "Security Events"}
               {activeTab === 'matrix' && "Identity & Access Control"}
               {activeTab === 'docs' && "Documentation"}
@@ -589,6 +614,11 @@ export function DashboardView({ user, keys, logs, onGenerateKey, onLogout, onDel
             🚀 TABS CONTENT
         ======================== */}
         <div className="relative z-10">
+
+          {/* --- TAB 0: AI THREAT INTEL --- */}
+          {activeTab === 'threat' && (
+            <ThreatIntelView user={user} notify={notify} />
+          )}
 
           {/* --- TAB 1: API KEYS --- */}
           {activeTab === 'keys' && (
@@ -664,39 +694,60 @@ export function DashboardView({ user, keys, logs, onGenerateKey, onLogout, onDel
                 <table className="w-full text-left text-sm">
                   <thead className="bg-slate-900/80 text-slate-500 uppercase font-mono text-xs">
                     <tr>
+                      <th className="px-6 py-4">Machine Identity</th>
                       <th className="px-6 py-4">Key Fingerprint</th>
-                      {(user.role === "Admin" || user.role === "Auditor") && (
-                        <th className="px-6 py-4">Identity</th>
-                      )}
+                      <th className="px-6 py-4">Risk & Status</th>
+                      <th className="px-6 py-4">Payment Scopes</th>
                       <th className="px-6 py-4">Encryption</th>
-                      <th className="px-6 py-4">Status</th>
                       <th className="px-6 py-4">Created</th>
-                      {user.role !== "Auditor" && <th className="px-6 py-4">Actions</th>}
+                      {user.role !== "Auditor" && <th className="px-6 py-4 text-right">Actions</th>}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-800">
                     {keys && keys.map((k) => (
                       <tr key={k.id} className="hover:bg-white/5 transition-colors group">
-                        <td className="px-6 py-4 font-mono text-slate-300">
-                          {k?.prefix && <span className="bg-emerald-500 text-black px-2 py-0.5 rounded text-xs font-bold mr-2">NEW</span>}
-                          {k?.fingerprint || "****"}
+                        <td className="px-6 py-4 font-mono font-bold text-white">
+                          <div className="flex items-center gap-2">
+                            <span className={`w-2 h-2 rounded-full ${k.status === 'QUARANTINED' ? 'bg-red-500 animate-ping' : 'bg-emerald-400'}`}></span>
+                            {k.name || "Microservice Node"}
+                          </div>
                         </td>
-                        {(user.role === "Admin" || user.role === "Auditor") && (
-                          <td className="px-6 py-4 text-xs text-slate-400">
-                            <span className="text-white font-bold">{k.owner?.username}</span><br />
-                            {k.owner?.email}
-                          </td>
-                        )}
-                        <td className="px-6 py-4 text-emerald-400 font-mono text-xs">
-                          <span className="flex items-center gap-2"><Lock size={12} /> AES-256-GCM</span>
+                        <td className="px-6 py-4 font-mono text-slate-300 text-xs">
+                          {k?.prefix && <span className="bg-emerald-500 text-black px-2 py-0.5 rounded text-xs font-bold mr-2">NEW</span>}
+                          {k?.fingerprint ? k.fingerprint.substring(0, 16) + '...' : "****"}
                         </td>
                         <td className="px-6 py-4">
-                          <span className="px-2 py-1 bg-emerald-500/10 text-emerald-400 text-xs rounded border border-emerald-500/20">Active</span>
+                          <div className="flex items-center gap-2">
+                            {k.status === 'QUARANTINED' ? (
+                              <span className="px-2 py-0.5 bg-red-500/20 text-red-400 border border-red-500/30 rounded text-xs font-bold font-mono">
+                                QUARANTINED
+                              </span>
+                            ) : (
+                              <span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded text-xs font-bold font-mono">
+                                ACTIVE
+                              </span>
+                            )}
+                            <span className="text-[11px] font-mono text-slate-400">
+                              ({k.riskScore || 0}/100)
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex flex-wrap gap-1 max-w-xs">
+                            {(k.scopes || []).map((s, i) => (
+                              <span key={i} className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">
+                                {s}
+                              </span>
+                            ))}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 text-emerald-400 font-mono text-xs">
+                          <span className="flex items-center gap-1.5"><Lock size={12} /> AES-256-GCM</span>
                         </td>
                         <td className="px-6 py-4 text-slate-500 text-xs font-mono">{formatDate(k?.createdAt)}</td>
                         {user.role !== "Auditor" && (
-                          <td className="px-6 py-4">
-                            <div className="flex gap-2">
+                          <td className="px-6 py-4 text-right">
+                            <div className="flex justify-end gap-2">
                               {/* RUST FEATURE: ROTATE BUTTON */}
                               <button
                                 onClick={() => handleRotate(k.id)}
@@ -718,8 +769,8 @@ export function DashboardView({ user, keys, logs, onGenerateKey, onLogout, onDel
                         )}
                       </tr>
                     ))}
-                    {!keys || keys.length === 0 && (
-                      <tr><td colSpan="5" className="p-8 text-center text-slate-600 italic">No active keys found.</td></tr>
+                    {(!keys || keys.length === 0) && (
+                      <tr><td colSpan="7" className="p-8 text-center text-slate-600 italic font-mono">No active keys found in vault.</td></tr>
                     )}
                   </tbody>
                 </table>
@@ -1096,6 +1147,87 @@ export function DashboardView({ user, keys, logs, onGenerateKey, onLogout, onDel
         onCancel={() => setRequestModal({ isOpen: false })}
         onSubmit={handleSubmitAccessRequest}
       />
+
+      {/* 🔑 GENERATE CREDENTIALS MODAL */}
+      {isGenKeyModalOpen && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-emerald-500/30 rounded-2xl max-w-md w-full p-6 space-y-5 shadow-2xl relative">
+            <button
+              onClick={() => setIsGenKeyModalOpen(false)}
+              className="absolute top-5 right-5 text-slate-400 hover:text-white"
+            >
+              <X size={20} />
+            </button>
+
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+                <Key size={20} />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-white">Issue Machine Credential</h3>
+                <p className="text-xs text-slate-400">Configure scopes and generate high-entropy AES-256-GCM keys.</p>
+              </div>
+            </div>
+
+            <form onSubmit={handleConfirmGenerateKey} className="space-y-4 text-xs font-mono">
+              <div>
+                <label className="block text-slate-400 mb-1">Identity / Service Name</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g., Payment-Settlement-Worker"
+                  value={newKeyName}
+                  onChange={(e) => setNewKeyName(e.target.value)}
+                  className="w-full p-2.5 bg-slate-800 border border-slate-700 rounded-lg text-white font-sans text-sm focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-400 mb-1.5">Machine Authorization Scopes</label>
+                <div className="flex flex-wrap gap-1.5 max-h-48 overflow-y-auto pr-1">
+                  {[
+                    'payment:initiate', 'payment:authorize', 'payment:settle',
+                    'refund:process', 'ledger:read', 'ledger:write',
+                    'read:data', 'write:data', 'delete:data'
+                  ].map((scope) => {
+                    const isSelected = newKeyScopes.includes(scope);
+                    return (
+                      <button
+                        type="button"
+                        key={scope}
+                        onClick={() => {
+                          if (isSelected) {
+                            setNewKeyScopes(newKeyScopes.filter(s => s !== scope));
+                          } else {
+                            setNewKeyScopes([...newKeyScopes, scope]);
+                          }
+                        }}
+                        className={`px-2.5 py-1 rounded text-[11px] border transition-all ${
+                          isSelected
+                            ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300 font-bold shadow-[0_0_10px_-3px_rgba(16,185,129,0.3)]'
+                            : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-slate-200'
+                        }`}
+                      >
+                        {scope}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="pt-2">
+                <button
+                  type="submit"
+                  className="w-full py-3 bg-emerald-500 hover:bg-emerald-400 text-black font-bold rounded-xl transition-all shadow-[0_0_20px_-5px_rgba(16,185,129,0.4)]"
+                >
+                  Generate & Vault Key
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {notification && <Toast {...notification} />}
     </div>
   );
@@ -1241,18 +1373,25 @@ function UserRow({ userRow, currentUser, onRoleChange, onDeleteUser }) {
 }
 
 // 2. Navigation Button Component
-function NavButton({ icon: Icon, label, active, onClick }) {
+function NavButton({ icon: Icon, label, active, onClick, badge }) {
   return (
     <button
       onClick={onClick}
-      className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200
+      className={`w-full flex items-center justify-between px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200
         ${active
           ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 shadow-[0_0_15px_-5px_rgba(16,185,129,0.3)]'
           : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
         }
       `}
     >
-      <Icon size={18} /> {label}
+      <div className="flex items-center gap-3">
+        <Icon size={18} /> {label}
+      </div>
+      {badge && (
+        <span className="text-[10px] font-extrabold uppercase px-1.5 py-0.5 rounded bg-red-500 text-white font-mono animate-pulse">
+          {badge}
+        </span>
+      )}
     </button>
   );
 }
