@@ -15,6 +15,8 @@ import dataRoutes from './src/routes/dataRoutes.js';
 import userRoutes from './src/routes/users.js';
 import accessRoutes from './src/routes/accessRoutes.js';
 import tokenRoutes from './src/routes/tokenRoutes.js';
+import riskRoutes from './src/routes/riskRoutes.js';
+import policyRoutes from './src/routes/policyRoutes.js';
 
 dotenv.config();
 
@@ -52,7 +54,7 @@ app.use(helmet({
 // RATE LIMITING: Prevents Brute Force/DDoS
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // Limit each IP to 100 requests per window
+  max: 1000, // Ample limit for testing and high-velocity simulation
   message: { error: "Too many requests from this IP, please try again after 15 minutes" }
 });
 app.use('/api/', limiter);
@@ -93,6 +95,8 @@ app.use('/api/keys', keyRoutes);
 app.use('/api/audit-logs', auditRoutes);
 app.use('/api/v1', dataRoutes);
 app.use('/api/v1/token', tokenRoutes);
+app.use('/api/v1/risk', riskRoutes);
+app.use('/api/v1/policies', policyRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/access', accessRoutes);
 

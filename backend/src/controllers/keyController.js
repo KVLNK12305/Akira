@@ -137,7 +137,10 @@ export const getMyKeys = async (req, res) => {
       owner: k.owner, // Included for Auditors to see who owns what
       fingerprint: k.keyFingerprint,
       scopes: k.scopes,
-      status: k.isActive ? 'Active' : 'Revoked',
+      status: k.status || (k.isActive ? 'ACTIVE' : 'REVOKED'),
+      riskScore: k.riskScore || 0,
+      quarantinedAt: k.quarantinedAt,
+      quarantineReason: k.quarantineReason,
       createdAt: k.createdAt
     })));
   } catch (error) {
