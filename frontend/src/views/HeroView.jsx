@@ -45,17 +45,19 @@ export function HeroView({ onStart, onDocs }) {
     });
 
     // 3. ARCHITECTURE FLOW ANIMATION
-    gsap.to(".packet", {
-      motionPath: {
-        path: "#path-line",
-        align: "#path-line",
-        alignOrigin: [0.5, 0.5],
-        autoRotate: true
-      },
-      duration: 2,
-      repeat: -1,
-      ease: "none"
-    });
+    if (document.querySelector('.packet') && document.querySelector('#path-line')) {
+      gsap.to(".packet", {
+        motionPath: {
+          path: "#path-line",
+          align: "#path-line",
+          alignOrigin: [0.5, 0.5],
+          autoRotate: true
+        },
+        duration: 2,
+        repeat: -1,
+        ease: "none"
+      });
+    }
 
     // 4. FEATURE CARDS REVEAL
     gsap.from(".feature-card", {
