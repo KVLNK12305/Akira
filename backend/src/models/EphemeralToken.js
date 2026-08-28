@@ -11,7 +11,14 @@ const EphemeralTokenSchema = new mongoose.Schema({
   ttl: { type: Number, required: true, default: 300 },
   
   // Scopes inherited from parent, can be further narrowed (least privilege)
-  scopes: [{ type: String, enum: ['read:data', 'write:data', 'delete:data'] }],
+  scopes: [{
+    type: String,
+    enum: [
+      'read:data', 'write:data', 'delete:data',
+      'payment:initiate', 'payment:authorize', 'payment:settle',
+      'refund:process', 'ledger:read', 'ledger:write'
+    ]
+  }],
   
   // Workload attestation metadata
   attestation: {
@@ -20,6 +27,7 @@ const EphemeralTokenSchema = new mongoose.Schema({
     requestedAt: { type: Date, default: Date.now }
   },
   
+  riskScoreAtIssuance: { type: Number, default: 0 },
   issuedAt: { type: Date, default: Date.now },
   expiresAt: { type: Date, required: true, index: { expires: 0 } }, // MongoDB TTL index auto-deletes
   revoked: { type: Boolean, default: false }
