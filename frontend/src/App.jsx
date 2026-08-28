@@ -9,8 +9,9 @@ import LoginView from "./views/LoginView";
 import { MFAView } from "./views/MFAView";
 import { DashboardView } from "./views/DashboardView";
 import ProfileView from "./views/ProfileView";
-// import { DocumentationView } from "./views/DocumentationView"; // Uncomment if you have this
+import { DocumentationView } from "./views/DocumentationView";
 
+/* eslint-disable react-hooks/set-state-in-effect */
 export default function App() {
   return (
     <AuthProvider>
@@ -26,37 +27,9 @@ function MainLogic() {
   // Data State
   const [keys, setKeys] = useState([]);
   const [logs, setLogs] = useState([]);
-  const [dataLoading, setDataLoading] = useState(false);
-
-  // --- 1. SMART ROUTING LOGIC ---
-  useEffect(() => {
-    // Wait for AuthContext to finish checking session cookie
-    if (authLoading) return;
-
-    // Case A: Fully Authenticated -> Go to Dashboard
-    if (user) {
-      setView("dashboard");
-      fetchDashboardData();
-    }
-    // Case B: Login success, waiting for MFA -> Go to MFA
-    else if (tempEmail) {
-      setView("mfa");
-    }
-    // Case C: Logged out -> If currently on restricted pages, kick to Hero
-    else {
-      // 🛡️ SECURITY JANITOR: Completely Purge Sensitive Data on Logout
-      setKeys([]);
-      setLogs([]);
-
-      if (view === "dashboard" || view === "mfa" || view === "profile") {
-        setView("hero");
-      }
-    }
-  }, [user, tempEmail, authLoading]);
 
   // --- 2. ROBUST DATA FETCHING ---
-  const fetchDashboardData = async () => {
-    setDataLoading(true);
+  async function fetchDashboardData() {
     try {
       // Run fetches in parallel for speed
       const [keysRes, logsRes] = await Promise.allSettled([
@@ -84,14 +57,39 @@ function MainLogic() {
       }
     } catch (err) {
       console.error("Failed to fetch dashboard data", err);
-    } finally {
-      setDataLoading(false);
     }
   };
 
+  // --- 1. SMART ROUTING LOGIC ---
+  useEffect(() => {
+    // Wait for AuthContext to finish checking session cookie
+    if (authLoading) return;
+
+    // Case A: Fully Authenticated -> Go to Dashboard
+    if (user) {
+      setView("dashboard");
+      fetchDashboardData();
+    }
+    // Case B: Login success, waiting for MFA -> Go to MFA
+    else if (tempEmail) {
+      setView("mfa");
+    }
+    // Case C: Logged out -> If currently on restricted pages, kick to Hero
+    else {
+      // 🛡️ SECURITY JANITOR: Completely Purge Sensitive Data on Logout
+      setKeys([]);
+      setLogs([]);
+
+      if (view === "dashboard" || view === "mfa" || view === "profile") {
+        setView("hero");
+      }
+    }
+  }, [user, tempEmail, authLoading, view]);
+
+  
   // --- 3. HANDLERS ---
   const handleStart = () => setView("login");
-  const handleDocs = () => { /* setView("docs"); */ alert("Docs coming soon!"); };
+  const handleDocs = () => setView("docs");
 
   const handleMfaSuccess = () => {
     // AuthContext updates 'token', triggering the useEffect above to switch to 'dashboard'
@@ -189,10 +187,9 @@ function MainLogic() {
       return <ProfileView onBack={() => setView("dashboard")} onLogout={handleLogout} />;
 
     case "docs":
-      // return <DocumentationView onBack={() => setView("hero")} />;
-      return <HeroView onStart={handleStart} />; // Fallback
+      return <DocumentationView onBack={() => setView(user ? "dashboard" : "hero")} roleLabel={user?.role} />;
 
     default:
-      return <HeroView onStart={handleStart} />;
+      return <HeroView onStart={handleStart} onDocs={handleDocs} />;
   }
 }

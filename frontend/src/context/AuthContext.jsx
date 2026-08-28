@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import { createContext, useState, useContext, useEffect } from 'react';
 import api from '../api/axios';
 
@@ -20,7 +21,7 @@ export const AuthProvider = ({ children }) => {
           console.log("✅ Secure Session Restored:", res.data.user.username);
           setUser(res.data.user);
         }
-      } catch (error) {
+      } catch {
         // Not logged in or session expired - this is fine for initial load
         console.log("ℹ️ No active secure session Found.");
       }
