@@ -3,6 +3,7 @@ import NHIProfile from '../models/NHIProfile.js';
 import APIKey from '../models/APIKey.js';
 import { quarantineKey, releaseQuarantine } from '../services/containmentService.js';
 import { scoreNHIRequest } from '../services/riskEngine.js';
+import { generateAPIKey, encrypt, hashFingerprint } from '../utils/crypto.js';
 
 // @desc    Get paginated risk events
 // @route   GET /api/v1/risk/events
@@ -177,11 +178,30 @@ export const simulateRiskAttack = async (req, res) => {
     if (keyId) {
       keyRecord = await APIKey.findById(keyId);
     } else {
-      keyRecord = await APIKey.findOne({ status: 'ACTIVE' });
+      keyRecord = await APIKey.findOne({ status: 'ACTIVE' }) 
+        || await APIKey.findOne({ isActive: true }) 
+        || await APIKey.findOne().sort({ createdAt: -1 });
     }
 
+    // Auto-provision demo key if database has 0 keys
     if (!keyRecord) {
-      return res.status(404).json({ error: 'No active API Key found for attack simulation' });
+      const rawKey = generateAPIKey();
+      const encryptedData = encrypt(rawKey, process.env.MASTER_KEY || '8f4b2e1c9d0a3f5b7e6d8c1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c');
+      const [iv, authTag, encryptedKey] = encryptedData.split(':');
+      const fingerprint = hashFingerprint(rawKey);
+
+      keyRecord = await APIKey.create({
+        owner: req.user?._id || req.user?.id,
+        name: 'Demo-Payment-Worker-01',
+        encryptedKey,
+        iv,
+        authTag: authTag || '',
+        keyFingerprint: fingerprint,
+        scopes: ['payment:initiate', 'payment:authorize', 'payment:settle'],
+        status: 'ACTIVE',
+        isActive: true,
+        expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+      });
     }
 
     // Configure scenario parameters
@@ -248,6 +268,7 @@ export const simulateRiskAttack = async (req, res) => {
       success: true,
       scenario: attackScenario,
       targetMachine: keyRecord.name,
+      targetKeyId: keyRecord._id,
       assessment
     });
   } catch (error) {

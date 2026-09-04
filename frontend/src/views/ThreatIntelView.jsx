@@ -16,12 +16,70 @@ export function ThreatIntelView({ notify }) {
   const [filterLevel, setFilterLevel] = useState("ALL");
   const [autoRefresh, setAutoRefresh] = useState(true);
 
+  // Sub-tabs navigation: 'telemetry' | 'simulator' | 'profiles'
+  const [sentinelTab, setSentinelTab] = useState("telemetry");
+  const [selectedScenario, setSelectedScenario] = useState("PAYMENT_EXFILTRATION");
+
   // Modals state
   const [selectedProfile, setSelectedProfile] = useState(null);
   const [isPolicyModalOpen, setIsPolicyModalOpen] = useState(false);
-  const [isSimulateModalOpen, setIsSimulateModalOpen] = useState(false);
   const [simulating, setSimulating] = useState(false);
   const [simulationResult, setSimulationResult] = useState(null);
+
+  const scenarioDetails = {
+    PAYMENT_EXFILTRATION: {
+      id: 'PAYMENT_EXFILTRATION',
+      name: "Bulk Settlement Exfiltration",
+      tag: "APT C2 Hijack",
+      desc: "Adversary initiates high-frequency bulk settlements to offshore accounts outside operational UTC hours.",
+      simulatedIP: "198.51.100.77 (Moscow Adversary ASN)",
+      simulatedScopes: ["payment:settle", "refund:process", "ledger:write"],
+      simulatedPath: "/api/v1/payment/settle-bulk",
+      payloadVolume: "$85,000 Bulk Batch (120 transaction records)",
+      attestStatus: "FAILED_ATTESTATION (Rust Memory Mismatch)",
+      expectedScore: "85 - 100",
+      signalsPredicted: ["IP_DEVIATION (+25)", "SCOPE_ESCALATION (+30)", "VELOCITY_SPIKE (+20)", "FAILED_ATTESTATION (+35)"]
+    },
+    UNAUTHORIZED_REFUND: {
+      id: 'UNAUTHORIZED_REFUND',
+      name: "High-Value Refund Hijack",
+      tag: "Reversal Attack",
+      desc: "Compromised machine credential attempts unauthorized forced reversals exceeding daily velocity baselines.",
+      simulatedIP: "185.220.101.5 (Tor Exit Node)",
+      simulatedScopes: ["refund:process"],
+      simulatedPath: "/api/v1/payment/refund",
+      payloadVolume: "$89,000 Unverified Reversal Transaction",
+      attestStatus: "POLICY_VIOLATION (Restricted Scope)",
+      expectedScore: "75 - 95",
+      signalsPredicted: ["MALICIOUS_IP (+40)", "HIGH_VALUE_SCOPE (+15)", "SCOPE_ESCALATION (+30)"]
+    },
+    IMPOSSIBLE_TRAVEL: {
+      id: 'IMPOSSIBLE_TRAVEL',
+      name: "Impossible Geolocation Travel",
+      tag: "Physics Anomaly",
+      desc: "Machine key invokes gateway from Tokyo datacenters < 2 minutes after NYC operations (Velocity > Mach 8).",
+      simulatedIP: "203.0.113.88 (Tokyo Datacenter)",
+      simulatedScopes: ["payment:authorize", "ledger:read"],
+      simulatedPath: "/api/v1/payment/charge",
+      payloadVolume: "10,852 km displacement across continental networks",
+      attestStatus: "GEOLOCATION_PHYSICS_VIOLATION",
+      expectedScore: "90 - 100",
+      signalsPredicted: ["IMPOSSIBLE_TRAVEL (+45)", "IP_DEVIATION (+25)", "DEVICE_ANOMALY (+25)"]
+    },
+    COMPROMISED_KEY_BREACH: {
+      id: 'COMPROMISED_KEY_BREACH',
+      name: "DarkWeb Leaked Secret + Tor Node",
+      tag: "Breach Feed Match",
+      desc: "Inbound machine request presents credential matching threat intelligence feed of compromised processor keys.",
+      simulatedIP: "185.220.101.45 (Tor Exit Subnet)",
+      simulatedScopes: ["payment:settle"],
+      simulatedPath: "/api/v1/payment/settle",
+      payloadVolume: "High-entropy root key leaked in public breach database",
+      attestStatus: "REVOKED_SECRET_INTERCEPTION",
+      expectedScore: "100 / 100",
+      signalsPredicted: ["COMPROMISED_CREDENTIAL (+50)", "MALICIOUS_IP (+40)", "FAILED_ATTESTATION (+35)"]
+    }
+  };
 
   // New Policy form state
   const [policyForm, setPolicyForm] = useState({
@@ -137,12 +195,13 @@ export function ThreatIntelView({ notify }) {
   };
 
   const handleRunSimulation = async (scenario) => {
+    const targetScenario = scenario || selectedScenario;
     setSimulating(true);
     setSimulationResult(null);
     try {
-      const res = await api.post('/v1/risk/simulate-attack', { attackScenario: scenario });
+      const res = await api.post('/v1/risk/simulate-attack', { attackScenario: targetScenario });
       setSimulationResult(res.data);
-      notify(`Simulation Executed: ${scenario}`, "success");
+      notify(`Simulation Executed: ${scenarioDetails[targetScenario]?.name || targetScenario}`, "success");
       fetchThreatData(false);
     } catch (err) {
       notify(err.response?.data?.error || "Simulation error", "error");
@@ -210,16 +269,73 @@ export function ThreatIntelView({ notify }) {
           </button>
 
           <button
-            onClick={() => setIsSimulateModalOpen(true)}
-            className="bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white font-bold px-4 py-2 rounded-xl text-sm transition-all shadow-[0_0_20px_-5px_rgba(239,68,68,0.5)] flex items-center gap-2"
+            onClick={() => setSentinelTab("simulator")}
+            className={`font-bold px-4 py-2 rounded-xl text-sm transition-all flex items-center gap-2 ${
+              sentinelTab === "simulator"
+                ? "bg-red-500 text-white shadow-[0_0_20px_-5px_rgba(239,68,68,0.7)]"
+                : "bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white shadow-[0_0_20px_-5px_rgba(239,68,68,0.5)]"
+            }`}
           >
             <Play size={16} /> Live Attack Simulator
           </button>
         </div>
       </div>
 
+      {/* SUB-TABS NAVIGATION BAR */}
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800/80 pb-3">
+        <div className="flex flex-wrap items-center gap-2 bg-slate-900/90 p-1.5 rounded-xl border border-slate-800 backdrop-blur-md">
+          <button
+            onClick={() => setSentinelTab("telemetry")}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-mono font-bold transition-all ${
+              sentinelTab === "telemetry"
+                ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow-[0_0_15px_rgba(16,185,129,0.2)]"
+                : "text-slate-400 hover:text-slate-200 hover:bg-white/5 border border-transparent"
+            }`}
+          >
+            <Activity size={14} className={sentinelTab === "telemetry" ? "animate-pulse text-emerald-400" : ""} />
+            REAL-TIME STREAM & RADAR
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+          </button>
+
+          <button
+            onClick={() => setSentinelTab("simulator")}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-mono font-bold transition-all ${
+              sentinelTab === "simulator"
+                ? "bg-red-500/20 text-red-300 border border-red-500/40 shadow-[0_0_15px_rgba(239,68,68,0.25)]"
+                : "text-slate-400 hover:text-slate-200 hover:bg-white/5 border border-transparent"
+            }`}
+          >
+            <Play size={14} className={sentinelTab === "simulator" ? "text-red-400" : ""} />
+            ATTACK SIMULATOR & CONTAINMENT COCKPIT
+            <span className="bg-red-500/30 text-red-300 text-[10px] px-1.5 py-0.2 rounded border border-red-500/40">4 VECTORS</span>
+          </button>
+
+          <button
+            onClick={() => setSentinelTab("profiles")}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-mono font-bold transition-all ${
+              sentinelTab === "profiles"
+                ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-[0_0_15px_rgba(6,182,212,0.2)]"
+                : "text-slate-400 hover:text-slate-200 hover:bg-white/5 border border-transparent"
+            }`}
+          >
+            <Server size={14} className={sentinelTab === "profiles" ? "text-cyan-400" : ""} />
+            MACHINE BASELINES & IDENTITY REGISTRY
+            <span className="bg-slate-800 text-slate-400 text-[10px] px-1.5 py-0.2 rounded">
+              {profiles.length} NHI
+            </span>
+          </button>
+        </div>
+
+        <div className="hidden sm:flex items-center gap-2 text-xs font-mono text-slate-400">
+          <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+          <span>Zero-Trust Policy Engine: <strong className="text-emerald-400">ENFORCING</strong></span>
+        </div>
+      </div>
+
       {/* 1. THREAT RADAR & TELEMETRY OVERVIEW */}
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
+      {sentinelTab === "telemetry" && (
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
         {/* Radar Visualizer Box (1 col on large screens) */}
         <div className="lg:col-span-1 bg-[#091122]/90 border border-emerald-500/30 p-4 rounded-2xl backdrop-blur-xl shadow-xl flex flex-col items-center justify-center relative overflow-hidden group">
           <div className="absolute inset-0 cyber-grid-pattern opacity-30"></div>
@@ -491,10 +607,360 @@ export function ThreatIntelView({ notify }) {
           </div>
 
         </div>
-
       </div>
+    </div>
+    )}
+
+      {/* 2. ATTACK SIMULATOR & ZERO-TRUST CONTAINMENT COCKPIT */}
+      {sentinelTab === "simulator" && (
+        <div className="space-y-4">
+          {/* Cockpit Top Status Bar */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-gradient-to-r from-red-950/40 via-slate-900 to-slate-900 border border-red-500/30 px-5 py-3.5 rounded-2xl shadow-xl backdrop-blur-xl">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-red-500/20 border border-red-500/40 flex items-center justify-center text-red-400">
+                <Play size={18} className="fill-red-400" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                  Tactical Adversary Simulation Cockpit
+                  <span className="bg-red-500/20 text-red-400 border border-red-500/30 text-[10px] px-2 py-0.5 rounded font-mono font-bold">
+                    ACTIVE SANDBOX
+                  </span>
+                </h3>
+                <p className="text-slate-400 text-xs">
+                  Inject synthetic APT vectors against machine identities to evaluate real-time Zero-Trust heuristics & automated containment.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 text-xs font-mono text-slate-400">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+              <span>Defense Enclave: <strong className="text-emerald-400">ONLINE</strong></span>
+            </div>
+          </div>
+
+          {/* Cockpit 2-Column Split: Left 5 cols (Scenario Matrix & Parameters), Right 7 cols (Live Defense Telemetry & Containment Result) */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
+            
+            {/* LEFT COLUMN: SCENARIOS & ADVERSARY PARAMS (5 cols) */}
+            <div className="lg:col-span-5 space-y-4">
+              
+              {/* Scenarios Selector */}
+              <div className="bg-[#091122]/90 border border-white/[0.08] p-4 rounded-2xl backdrop-blur-xl shadow-xl space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-mono font-bold uppercase tracking-wider text-slate-400">
+                    1. Select Attack Vector
+                  </span>
+                  <span className="text-[10px] font-mono text-red-400 bg-red-500/10 px-2 py-0.5 rounded border border-red-500/20">
+                    4 APT PROFILES
+                  </span>
+                </div>
+
+                <div className="space-y-2">
+                  {Object.values(scenarioDetails).map((sc) => {
+                    const isSelected = selectedScenario === sc.id;
+                    return (
+                      <button
+                        key={sc.id}
+                        onClick={() => {
+                          setSelectedScenario(sc.id);
+                          setSimulationResult(null);
+                        }}
+                        className={`w-full text-left p-3 rounded-xl border transition-all flex items-center justify-between group ${
+                          isSelected
+                            ? "bg-red-950/40 border-red-500/60 shadow-[0_0_15px_rgba(239,68,68,0.25)]"
+                            : "bg-slate-900/60 border-slate-800 hover:border-slate-700 hover:bg-slate-800/40"
+                        }`}
+                      >
+                        <div className="space-y-0.5">
+                          <div className="flex items-center gap-2">
+                            <span className={`w-2 h-2 rounded-full ${isSelected ? 'bg-red-500 animate-ping' : 'bg-slate-600'}`}></span>
+                            <span className={`text-xs font-bold ${isSelected ? 'text-white' : 'text-slate-300 group-hover:text-white'}`}>
+                              {sc.name}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-slate-400 line-clamp-1 pl-4">
+                            {sc.desc}
+                          </p>
+                        </div>
+                        <span className={`text-[10px] font-mono px-2 py-0.5 rounded uppercase border whitespace-nowrap ml-2 ${
+                          isSelected ? 'bg-red-500/20 text-red-300 border-red-500/40 font-bold' : 'bg-slate-800 text-slate-400 border-slate-700'
+                        }`}>
+                          {sc.tag}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Selected Scenario Attack Parameters */}
+              {selectedScenario && scenarioDetails[selectedScenario] && (
+                <div className="bg-[#091122]/90 border border-white/[0.08] p-4 rounded-2xl backdrop-blur-xl shadow-xl space-y-3 font-mono text-xs">
+                  <div className="flex items-center justify-between border-b border-white/5 pb-2">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                      2. Adversary Injection Specs
+                    </span>
+                    <span className="text-[10px] text-emerald-400 font-bold">ARMED</span>
+                  </div>
+
+                  <div className="space-y-2 text-slate-300">
+                    <div className="flex justify-between items-start gap-2">
+                      <span className="text-slate-500">Target Route:</span>
+                      <span className="text-cyan-300 font-bold text-right truncate">
+                        {scenarioDetails[selectedScenario].simulatedPath}
+                      </span>
+                    </div>
+
+                    <div className="flex justify-between items-start gap-2">
+                      <span className="text-slate-500">Inbound IP:</span>
+                      <span className="text-amber-300 text-right truncate">
+                        {scenarioDetails[selectedScenario].simulatedIP}
+                      </span>
+                    </div>
+
+                    <div className="flex justify-between items-start gap-2">
+                      <span className="text-slate-500">Attest Probe:</span>
+                      <span className="text-rose-400 text-right text-[11px] truncate">
+                        {scenarioDetails[selectedScenario].attestStatus}
+                      </span>
+                    </div>
+
+                    <div className="flex justify-between items-start gap-2">
+                      <span className="text-slate-500">Expected Score:</span>
+                      <span className="text-red-400 font-bold">
+                        {scenarioDetails[selectedScenario].expectedScore}
+                      </span>
+                    </div>
+
+                    <div>
+                      <span className="text-slate-500 block mb-1">Target Scopes:</span>
+                      <div className="flex flex-wrap gap-1">
+                        {scenarioDetails[selectedScenario].simulatedScopes.map((s, i) => (
+                          <span key={i} className="text-[10px] bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded border border-slate-700">
+                            {s}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Launch Attack Button */}
+                  <button
+                    onClick={() => handleRunSimulation(selectedScenario)}
+                    disabled={simulating}
+                    className="w-full mt-3 py-3 rounded-xl font-mono font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 text-white bg-gradient-to-r from-red-600 via-rose-600 to-red-700 hover:from-red-500 hover:to-rose-500 shadow-[0_0_25px_-5px_rgba(239,68,68,0.5)] disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {simulating ? (
+                      <>
+                        <RefreshCw size={15} className="animate-spin text-white" />
+                        INJECTING & SCORING HEURISTICS...
+                      </>
+                    ) : (
+                      <>
+                        <Zap size={15} className="text-amber-300 animate-pulse" />
+                        LAUNCH ADVERSARY SIMULATION
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
+
+            </div>
+
+            {/* RIGHT COLUMN: LIVE CONTAINMENT & TELEMETRY TERMINAL (7 cols) */}
+            <div className="lg:col-span-7">
+              
+              {!simulationResult && !simulating && (
+                <div className="bg-[#091122]/90 border border-white/[0.08] p-6 rounded-2xl backdrop-blur-xl shadow-xl flex flex-col items-center justify-center min-h-[380px] text-center space-y-4 relative overflow-hidden">
+                  <div className="absolute inset-0 cyber-grid-pattern opacity-20 pointer-events-none"></div>
+                  
+                  <div className="w-16 h-16 rounded-2xl bg-red-500/10 border border-red-500/25 flex items-center justify-center text-red-400 relative z-10 shadow-[0_0_30px_rgba(239,68,68,0.15)]">
+                    <ShieldAlert size={32} />
+                  </div>
+
+                  <div className="max-w-md space-y-1.5 relative z-10">
+                    <h4 className="text-sm font-bold text-white uppercase tracking-wider">
+                      Zero-Trust Defense Cockpit Armed
+                    </h4>
+                    <p className="text-xs text-slate-400">
+                      Select an attack vector on the left and click <span className="text-red-400 font-bold">"LAUNCH ADVERSARY SIMULATION"</span>. The AI Sentinel will intercept the synthetic request, evaluate behavioral deviation weights, and trigger automated quarantine.
+                    </p>
+                  </div>
+
+                  <div className="w-full max-w-lg p-3 bg-black/50 border border-slate-800 rounded-xl text-left font-mono text-[11px] text-slate-400 space-y-1.5 relative z-10">
+                    <div className="text-slate-500 uppercase tracking-widest text-[9px] border-b border-white/5 pb-1">
+                      Real-Time Interception Pipeline
+                    </div>
+                    <div className="flex items-center gap-2 text-slate-300">
+                      <span className="text-emerald-400 font-bold">STAGE 1:</span> Gateway Ingress & Rust Binary Attestation (eBPF)
+                    </div>
+                    <div className="flex items-center gap-2 text-slate-300">
+                      <span className="text-cyan-400 font-bold">STAGE 2:</span> Non-Human Identity Behavioral Heuristic Engine
+                    </div>
+                    <div className="flex items-center gap-2 text-slate-300">
+                      <span className="text-amber-400 font-bold">STAGE 3:</span> Dynamic Risk Score Scoring (&ge; 75 Threshold)
+                    </div>
+                    <div className="flex items-center gap-2 text-slate-300">
+                      <span className="text-rose-400 font-bold">STAGE 4:</span> SPIFFE SVID Revocation, API Key Quarantine, HTTP 403
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {simulating && (
+                <div className="bg-[#091122]/90 border border-red-500/30 p-6 rounded-2xl backdrop-blur-xl shadow-xl flex flex-col justify-center min-h-[380px] space-y-4 font-mono text-xs">
+                  <div className="flex items-center justify-between border-b border-red-500/20 pb-3">
+                    <div className="flex items-center gap-2 text-red-400 font-bold">
+                      <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-ping"></span>
+                      INTERCEPTING ADVERSARY PAYLOAD...
+                    </div>
+                    <span className="text-slate-400 text-[10px]">SOC TELEMETRY STREAM</span>
+                  </div>
+
+                  <div className="p-4 bg-black/60 rounded-xl border border-red-500/20 space-y-2 text-slate-300">
+                    <div className="text-cyan-400 flex items-center gap-2">
+                      <span className="text-slate-600">[0.012s]</span> Inbound HTTP packet intercepted at edge gateway
+                    </div>
+                    <div className="text-rose-400 flex items-center gap-2">
+                      <span className="text-slate-600">[0.038s]</span> Rust attestation mismatch flagged (NO_MATCH)
+                    </div>
+                    <div className="text-amber-400 flex items-center gap-2">
+                      <span className="text-slate-600">[0.065s]</span> Deviations detected: IP subnet, atypical scopes, velocity spike
+                    </div>
+                    <div className="text-purple-400 flex items-center gap-2">
+                      <span className="text-slate-600">[0.089s]</span> Calculating multi-signal heuristic score matrix...
+                    </div>
+                    <div className="text-emerald-400 flex items-center gap-2 animate-pulse">
+                      <span className="text-slate-600">[0.114s]</span> Executing automated containment protocol...
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {simulationResult && !simulating && (
+                <div className="bg-[#091122]/95 border border-red-500/40 p-5 rounded-2xl backdrop-blur-xl shadow-2xl space-y-4">
+                  
+                  {/* Containment Status Header */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-red-950/40 border border-red-500/30 p-3.5 rounded-xl">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-lg bg-red-500/20 border border-red-500/40 flex items-center justify-center text-red-400 shadow-[0_0_15px_rgba(239,68,68,0.4)]">
+                        <Lock size={20} />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h4 className="text-sm font-bold text-white uppercase tracking-wider">
+                            ATTACK CONTAINED &bull; IDENTITY QUARANTINED
+                          </h4>
+                        </div>
+                        <p className="text-slate-400 text-xs mt-0.5">
+                          Autonomous mitigation triggered in &lt; 45ms. Target machine locked out.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <span className="px-2.5 py-1 bg-red-500 text-white text-xs font-mono font-extrabold rounded-md shadow-[0_0_10px_rgba(239,68,68,0.5)]">
+                        {simulationResult.assessment?.riskLevel || 'CRITICAL'} RISK
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* 3 Metrics Cards */}
+                  <div className="grid grid-cols-3 gap-3 font-mono">
+                    <div className="bg-black/40 border border-white/5 p-3 rounded-xl text-center">
+                      <span className="text-[10px] text-slate-500 uppercase">Assessed Risk Score</span>
+                      <div className="text-xl font-extrabold text-red-400 mt-0.5">
+                        {simulationResult.assessment?.riskScore || 0}<span className="text-xs text-slate-500">/100</span>
+                      </div>
+                    </div>
+
+                    <div className="bg-black/40 border border-white/5 p-3 rounded-xl text-center">
+                      <span className="text-[10px] text-slate-500 uppercase">Target Machine</span>
+                      <div className="text-xs font-bold text-white mt-1 truncate" title={simulationResult.targetMachine}>
+                        {simulationResult.targetMachine || 'Payment Worker'}
+                      </div>
+                    </div>
+
+                    <div className="bg-black/40 border border-white/5 p-3 rounded-xl text-center">
+                      <span className="text-[10px] text-slate-500 uppercase">Containment Action</span>
+                      <div className="text-xs font-bold text-emerald-400 mt-1">
+                        QUARANTINED
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Triggered Signals Breakdown */}
+                  <div className="space-y-2">
+                    <span className="text-xs font-mono font-bold text-slate-400 uppercase tracking-wider flex items-center justify-between">
+                      <span>Heuristic Signals Triggered</span>
+                      <span className="text-[10px] text-slate-500">
+                        {simulationResult.assessment?.signals?.length || 0} DEVIATION VECTORS
+                      </span>
+                    </span>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {simulationResult.assessment?.signals?.map((s, idx) => (
+                        <div
+                          key={idx}
+                          className="bg-red-950/30 border border-red-500/30 p-2.5 rounded-lg flex items-center justify-between font-mono text-xs"
+                        >
+                          <div className="flex items-center gap-2 truncate">
+                            <AlertTriangle size={13} className="text-red-400 shrink-0" />
+                            <span className="text-slate-200 font-bold truncate">{s.signal}</span>
+                          </div>
+                          <span className="text-red-400 font-bold bg-red-500/20 px-1.5 py-0.5 rounded border border-red-500/30 text-[10px] shrink-0 ml-2">
+                            +{s.weight} pts
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Containment Protocol Checklist */}
+                  <div className="p-3 bg-black/40 border border-slate-800 rounded-xl font-mono text-xs space-y-1.5">
+                    <div className="text-[10px] uppercase tracking-wider text-slate-500 font-bold border-b border-white/5 pb-1">
+                      Autonomous Defense Enforcement
+                    </div>
+                    <div className="flex items-center gap-2 text-emerald-400 text-[11px]">
+                      <CheckCircle2 size={13} /> Machine API Key switched to QUARANTINED in database
+                    </div>
+                    <div className="flex items-center gap-2 text-emerald-400 text-[11px]">
+                      <CheckCircle2 size={13} /> Active ephemeral sessions & SPIFFE SVIDs mass-revoked
+                    </div>
+                    <div className="flex items-center gap-2 text-emerald-400 text-[11px]">
+                      <CheckCircle2 size={13} /> Reverse-proxy gateway returning HTTP 403 on subsequent invocations
+                    </div>
+                  </div>
+
+                  {/* Remediation & Reset Actions */}
+                  <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2 border-t border-white/5">
+                    <button
+                      onClick={() => handleRelease(simulationResult.targetKeyId || simulationResult.apiKeyId, simulationResult.targetMachine)}
+                      className="w-full sm:w-auto px-4 py-2 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 text-xs font-mono font-bold flex items-center justify-center gap-2 transition-all shadow-[0_0_15px_rgba(16,185,129,0.2)]"
+                    >
+                      <Unlock size={14} /> Release Machine Quarantine
+                    </button>
+
+                    <button
+                      onClick={() => setSimulationResult(null)}
+                      className="w-full sm:w-auto px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-mono flex items-center justify-center gap-2 transition-all"
+                    >
+                      Reset Simulator HUD
+                    </button>
+                  </div>
+
+                </div>
+              )}
+
+            </div>
+
+          </div>
+        </div>
+      )}
 
       {/* 3. NON-HUMAN IDENTITY RISK PROFILES TABLE */}
+      {sentinelTab === "profiles" && (
       <div className="space-y-4">
         <div className="flex justify-between items-center">
           <div>
@@ -636,107 +1102,6 @@ export function ThreatIntelView({ notify }) {
           </table>
         </div>
       </div>
-
-      {/* MODAL: LIVE ATTACK SIMULATOR (PITCH DEMO TOOL) */}
-      {isSimulateModalOpen && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-red-500/30 rounded-2xl max-w-xl w-full p-6 space-y-6 shadow-2xl relative">
-            <button
-              onClick={() => { setIsSimulateModalOpen(false); setSimulationResult(null); }}
-              className="absolute top-5 right-5 text-slate-400 hover:text-white"
-            >
-              <X size={20} />
-            </button>
-
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-xl bg-red-500/10 border border-red-500/30 flex items-center justify-center text-red-400">
-                <Play size={24} />
-              </div>
-              <div>
-                <h3 className="text-lg font-bold text-white">Live Attack & Auto-Containment Simulator</h3>
-                <p className="text-xs text-slate-400">Simulate malicious actions to demonstrate real-time containment.</p>
-              </div>
-            </div>
-
-            <div className="space-y-3">
-              <p className="text-xs font-mono uppercase text-slate-400 font-bold">Select Scenario:</p>
-              
-              <button
-                onClick={() => handleRunSimulation('IMPOSSIBLE_TRAVEL')}
-                disabled={simulating}
-                className="w-full text-left p-4 rounded-xl bg-slate-800/80 hover:bg-red-950/30 border border-slate-750 hover:border-red-500/40 transition-all flex items-center justify-between group"
-              >
-                <div>
-                  <p className="font-bold text-white text-sm group-hover:text-red-400">Impossible Travel Anomaly (Tokyo Physics Violation)</p>
-                  <p className="text-xs text-slate-400 mt-0.5 font-mono">10,800 km hop in &lt; 2 minutes (NYC baseline &rarr; Tokyo Japan)</p>
-                </div>
-                <ArrowUpRight size={18} className="text-slate-500 group-hover:text-red-400 group-hover:translate-x-0.5 transition-transform" />
-              </button>
-
-              <button
-                onClick={() => handleRunSimulation('COMPROMISED_KEY_BREACH')}
-                disabled={simulating}
-                className="w-full text-left p-4 rounded-xl bg-slate-800/80 hover:bg-red-950/30 border border-slate-750 hover:border-red-500/40 transition-all flex items-center justify-between group"
-              >
-                <div>
-                  <p className="font-bold text-white text-sm group-hover:text-red-400">DarkWeb Leaked Credential + Tor Node Exfiltration</p>
-                  <p className="text-xs text-slate-400 mt-0.5 font-mono">Compromised key breach match + Tor Exit Subnet invocation</p>
-                </div>
-                <ArrowUpRight size={18} className="text-slate-500 group-hover:text-red-400 group-hover:translate-x-0.5 transition-transform" />
-              </button>
-
-              <button
-                onClick={() => handleRunSimulation('PAYMENT_EXFILTRATION')}
-                disabled={simulating}
-                className="w-full text-left p-4 rounded-xl bg-slate-800/80 hover:bg-red-950/30 border border-slate-750 hover:border-red-500/40 transition-all flex items-center justify-between group"
-              >
-                <div>
-                  <p className="font-bold text-white text-sm group-hover:text-red-400">Payment Bulk Settlement Exfiltration</p>
-                  <p className="text-xs text-slate-400 mt-0.5 font-mono">Foreign adversary IP (198.51.100.77) + Scope escalation to payment:settle</p>
-                </div>
-                <ArrowUpRight size={18} className="text-slate-500 group-hover:text-red-400 group-hover:translate-x-0.5 transition-transform" />
-              </button>
-
-              <button
-                onClick={() => handleRunSimulation('UNAUTHORIZED_REFUND')}
-                disabled={simulating}
-                className="w-full text-left p-4 rounded-xl bg-slate-800/80 hover:bg-red-950/30 border border-slate-750 hover:border-red-500/40 transition-all flex items-center justify-between group"
-              >
-                <div>
-                  <p className="font-bold text-white text-sm group-hover:text-red-400">Unauthorized High-Value Refund Hijack</p>
-                  <p className="text-xs text-slate-400 mt-0.5 font-mono">Unrecognized IP + Device Mismatch + $89,000 refund payload</p>
-                </div>
-                <ArrowUpRight size={18} className="text-slate-500 group-hover:text-red-400 group-hover:translate-x-0.5 transition-transform" />
-              </button>
-            </div>
-
-            {/* Simulation Result Output */}
-            {simulationResult && (
-              <div className="p-4 rounded-xl bg-black/60 border border-red-500/40 space-y-3 font-mono text-xs">
-                <div className="flex justify-between items-center text-red-400 font-bold border-b border-red-500/20 pb-2">
-                  <span>🚨 CONTAINMENT TRIGGERED</span>
-                  <span>SCORE: {simulationResult.assessment?.riskScore}/100 ({simulationResult.assessment?.riskLevel})</span>
-                </div>
-                <div>
-                  <span className="text-slate-400">Target Identity:</span> <span className="text-white font-bold">{simulationResult.targetMachine}</span>
-                </div>
-                <div>
-                  <span className="text-slate-400">Signals:</span>
-                  <div className="flex flex-wrap gap-1 mt-1">
-                    {simulationResult.assessment?.signals?.map((s, idx) => (
-                      <span key={idx} className="bg-red-900/40 text-red-300 px-2 py-0.5 rounded border border-red-700/40">
-                        {s.signal} (+{s.weight})
-                      </span>
-                    ))}
-                  </div>
-                </div>
-                <div className="text-emerald-400 pt-1">
-                  &check; Active ephemeral sessions mass-revoked & key locked.
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
       )}
 
       {/* MODAL: CREATE POLICY */}
