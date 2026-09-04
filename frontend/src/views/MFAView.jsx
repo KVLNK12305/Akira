@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { ShieldCheck, ArrowRight, Loader2, Clock, LogOut, RefreshCw, Lock, Sparkles, KeyRound } from "lucide-react";
+import { Loader2, LogOut } from "lucide-react";
 import api from "../api/axios";
 import { useAuth } from "../context/AuthContext";
 
@@ -12,7 +12,6 @@ export function MFAView({ onVerify }) {
   const [timeLeft, setTimeLeft] = useState(60);
   const [isResending, setIsResending] = useState(false);
 
-  // Determine target email
   const targetEmail = user?.email || tempEmail || localStorage.getItem('temp_email');
 
   useEffect(() => {
@@ -44,7 +43,6 @@ export function MFAView({ onVerify }) {
     }
   };
 
-  // Clipboard paste support for full 6-digit OTP
   const handlePaste = (e) => {
     e.preventDefault();
     const pastedData = e.clipboardData.getData("text").trim();
@@ -70,10 +68,8 @@ export function MFAView({ onVerify }) {
         setAuthSuccess(res.data.token, res.data.user);
         if (onVerify) onVerify();
       }
-    } catch (err) {
-      console.error(err);
-      const errorMsg = err.response?.data?.error || "Incorrect Challenge Response. Access Denied.";
-      setError(errorMsg);
+    } catch {
+      setError("Invalid code.");
       setIsVerifying(false);
       setCode(["", "", "", "", "", ""]);
       document.getElementById("otp-0")?.focus();
@@ -94,45 +90,28 @@ export function MFAView({ onVerify }) {
   };
 
   return (
-    <div className="min-h-screen bg-[#020617] flex items-center justify-center p-4 sm:p-6 relative overflow-hidden font-sans selection:bg-emerald-500/30 selection:text-emerald-300">
+    <div className="min-h-screen relative bg-[#02050e] flex items-center justify-center p-6 overflow-hidden font-sans selection:bg-white/20 selection:text-white">
       
-      {/* Radiant Background Aura */}
+      {/* Ultra-Minimal Background */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[550px] h-[550px] bg-emerald-500/[0.08] rounded-full blur-[140px] animate-pulse-glow"></div>
-        <div className="absolute bottom-10 right-10 w-[400px] h-[400px] bg-cyan-500/[0.06] rounded-full blur-[130px]"></div>
-        <div className="absolute inset-0 cyber-grid-pattern opacity-30"></div>
+        <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-emerald-500/[0.04] rounded-full blur-[140px] mix-blend-screen"></div>
+        <div className="absolute bottom-10 right-10 w-[500px] h-[500px] bg-cyan-500/[0.03] rounded-full blur-[140px] mix-blend-screen"></div>
+        <div className="absolute inset-0 bg-[url('/noise.png')] opacity-[0.02] mix-blend-overlay"></div>
       </div>
 
-      <div className="w-full max-w-[460px] relative z-10 animate-fade-in">
-        <div className="rounded-3xl p-7 sm:p-9 relative overflow-hidden backdrop-blur-2xl bg-[#081124]/90 border border-emerald-500/20 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.8)]">
+      <div className="w-full max-w-[420px] relative z-10 animate-fade-in">
+        <div className="rounded-[24px] p-8 sm:p-10 relative overflow-hidden backdrop-blur-3xl bg-white/[0.015] border border-white/[0.04] shadow-[0_24px_80px_-20px_rgba(0,0,0,1)]">
 
-          {/* Top Timer Progress Bar */}
-          <div className="absolute top-0 inset-x-0 h-1 bg-slate-800/80">
-            <div 
-              className="h-full bg-gradient-to-r from-emerald-500 via-teal-400 to-cyan-400 transition-all duration-1000 ease-linear shadow-[0_0_10px_rgba(16,185,129,0.8)]" 
-              style={{ width: `${(timeLeft / 60) * 100}%` }}
-            />
-          </div>
-
-          <div className="text-center mb-7">
-            <div className="w-16 h-16 bg-[#0c162e] rounded-2xl flex items-center justify-center mx-auto mb-4 border border-emerald-500/30 relative shadow-[0_0_25px_-5px_rgba(16,185,129,0.4)]">
-              <ShieldCheck className="text-emerald-400 w-8 h-8 drop-shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
-              <div className="absolute inset-0 rounded-2xl border border-emerald-400/40 animate-ping opacity-30 pointer-events-none"></div>
-            </div>
-            
-            <h2 className="text-2xl sm:text-3xl font-extrabold text-white font-display tracking-tight mb-2">
-              Cryptographic Challenge
+          <div className="text-center mb-8">
+            <h2 className="text-2xl font-semibold text-white tracking-tight mb-2">
+              Authentication Code
             </h2>
-            <p className="text-slate-400 text-xs sm:text-sm">
-              Enter the 6-digit NIST authentication challenge sent to:
-              <span className="text-emerald-400 font-mono font-medium block mt-1 bg-emerald-500/10 py-1 px-2 rounded border border-emerald-500/20 break-all text-xs">
-                {targetEmail || "Operator Account"}
-              </span>
+            <p className="text-white/40 text-[14px]">
+              We sent a 6-digit code to <span className="text-white/80">{targetEmail}</span>
             </p>
           </div>
 
-          {/* 6-Digit OTP Blocks */}
-          <div className="flex gap-2 sm:gap-2.5 justify-center mb-6" onPaste={handlePaste}>
+          <div className="flex gap-2 sm:gap-3 justify-center mb-8" onPaste={handlePaste}>
             {code.map((digit, idx) => (
               <input
                 key={idx}
@@ -147,83 +126,58 @@ export function MFAView({ onVerify }) {
                     document.getElementById(`otp-${idx - 1}`)?.focus();
                   }
                 }}
-                className={`w-11 sm:w-13 h-14 bg-[#050b18] border text-center text-xl sm:text-2xl font-mono font-bold text-white rounded-xl outline-none transition-all duration-200 ${
+                className={`w-12 h-14 sm:w-14 sm:h-16 bg-white/[0.03] text-center text-xl sm:text-2xl font-medium text-white rounded-xl outline-none transition-all duration-200 border ${
                   error 
-                    ? 'border-rose-500/80 shadow-[0_0_15px_rgba(244,63,94,0.3)] animate-shake' 
+                    ? 'border-rose-500/40 bg-rose-500/5' 
                     : digit 
-                    ? 'border-emerald-400 bg-[#0a162d] shadow-[0_0_15px_-3px_rgba(16,185,129,0.4)] text-emerald-400' 
-                    : 'border-slate-700/80 focus:border-emerald-500/80 focus:bg-[#091224] focus:shadow-[0_0_15px_-3px_rgba(16,185,129,0.3)]'
+                    ? 'border-white/20 bg-white/[0.05]' 
+                    : 'border-transparent focus:border-white/20 focus:bg-white/[0.05]'
                 }`}
               />
             ))}
           </div>
 
           {error && (
-            <div className="text-rose-400 text-center text-xs font-mono mb-5 bg-rose-500/10 p-2.5 rounded-xl border border-rose-500/25 flex items-center justify-center gap-2 animate-fade-in">
-              <span>⚠</span> {error}
+            <div className="text-rose-400 text-center text-[13px] mb-6 animate-fade-in">
+              {error}
             </div>
           )}
 
           <button
             onClick={() => handleVerify(code.join(""))}
             disabled={isVerifying || code.some(c => c === "")}
-            className="w-full bg-gradient-to-r from-emerald-400 via-teal-400 to-cyan-400 hover:from-emerald-300 hover:to-cyan-300 text-slate-950 font-extrabold py-3.5 rounded-xl transition-all duration-300 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_0_20px_-3px_rgba(16,185,129,0.5)] hover:shadow-[0_0_25px_0_rgba(16,185,129,0.7)]"
+            className="w-full bg-white text-black hover:bg-white/90 font-medium py-3.5 rounded-2xl transition-all duration-300 flex items-center justify-center gap-2 disabled:opacity-50 mt-2 text-[15px]"
           >
             {isVerifying ? (
-              <>
-                <Loader2 className="animate-spin text-slate-950" size={18} />
-                <span className="font-mono text-xs uppercase tracking-wider">Validating Challenge Response...</span>
-              </>
+              <Loader2 className="animate-spin text-black" size={18} />
             ) : (
-              <>
-                <span className="font-display">Authorize Session</span>
-                <ArrowRight size={17} className="stroke-[2.5]" />
-              </>
+              "Verify Code"
             )}
           </button>
 
-          {/* Resend Action */}
-          <button
-            onClick={handleResend}
-            disabled={timeLeft > 0 || isResending}
-            className={`w-full mt-3 py-2.5 rounded-xl border text-xs font-mono transition-all flex items-center justify-center gap-2 ${
-              timeLeft === 0
-                ? "bg-[#0c1833] text-emerald-400 border-emerald-500/30 hover:bg-[#102044] cursor-pointer shadow-sm"
-                : "bg-transparent text-slate-500 border-slate-800 cursor-not-allowed opacity-60"
-            }`}
-          >
-            {isResending ? <Loader2 className="animate-spin" size={14} /> : <RefreshCw size={14} />}
-            {timeLeft === 0 ? "Generate New Challenge OTP" : `Challenge active (${timeLeft}s remaining)`}
-          </button>
-
-          {/* Cancel & Return */}
-          <button
-            onClick={logout}
-            className="w-full mt-3 flex items-center justify-center gap-2 text-slate-400 hover:text-rose-400 text-xs font-mono transition-colors py-2"
-          >
-            <LogOut size={13} /> Terminate & Return to Gateway
-          </button>
-
-          {/* Security Telemetry Footer */}
-          <div className="mt-6 flex justify-between items-center text-[10px] font-mono text-slate-500 border-t border-slate-800/80 pt-4">
-            <span className="flex items-center gap-1">
-              <Lock size={10} className="text-emerald-400" /> CHALLENGE: NIST-800-63B
-            </span>
-            <span className={`flex items-center gap-1 font-semibold ${timeLeft < 20 ? 'text-rose-400 animate-pulse' : 'text-emerald-400'}`}>
-              <Clock size={11} /> {formatTime(timeLeft)}
-            </span>
+          <div className="mt-8 text-center flex flex-col items-center justify-center gap-4">
+            <button
+              onClick={handleResend}
+              disabled={timeLeft > 0 || isResending}
+              className={`text-[14px] transition-colors ${
+                timeLeft === 0
+                  ? "text-white/70 hover:text-white"
+                  : "text-white/30 cursor-not-allowed"
+              }`}
+            >
+              {isResending ? "Sending..." : timeLeft === 0 ? "Resend Code" : `Resend code in ${formatTime(timeLeft)}`}
+            </button>
+            
+            <button
+              onClick={logout}
+              className="flex items-center gap-1.5 text-white/30 hover:text-white/60 text-[13px] transition-colors"
+            >
+              <LogOut size={14} /> Back to login
+            </button>
           </div>
+
         </div>
       </div>
-      
-      <style>{`
-        @keyframes shake {
-          0%, 100% { transform: translateX(0); }
-          25% { transform: translateX(-4px); }
-          75% { transform: translateX(4px); }
-        }
-        .animate-shake { animation: shake 0.3s ease-in-out; }
-      `}</style>
     </div>
   );
 }
