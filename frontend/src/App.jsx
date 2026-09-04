@@ -179,6 +179,7 @@ function MainLogic() {
           onGenerateKey={handleGenerateKey}
           onLogout={handleLogout}
           onDeleteKey={handleDeleteKey}
+          onRefreshKeys={fetchDashboardData}
           onProfile={() => setView("profile")}
         />
       );

@@ -972,8 +972,8 @@ export function DashboardView({ user, keys, logs, onGenerateKey, onLogout, onDel
                   )}
 
                   {/* USER ROLE MANAGEMENT SECTION */}
-                  <div className="bg-[#0a1428]/80 border border-white/10 rounded-2xl backdrop-blur-xl overflow-hidden">
-                    <div className="p-6 border-b border-white/5 flex justify-between items-center">
+                  <div className="bg-[#0a1428]/80 border border-white/10 rounded-2xl backdrop-blur-xl">
+                    <div className="p-6 border-b border-white/5 flex justify-between items-center rounded-t-2xl">
                       <div>
                         <h3 className="text-lg font-bold text-white flex items-center gap-2 tracking-tight font-display">
                           <Users size={20} className="text-emerald-400" />
@@ -986,7 +986,7 @@ export function DashboardView({ user, keys, logs, onGenerateKey, onLogout, onDel
                       </div>
                     </div>
 
-                    <div className="overflow-x-auto">
+                    <div className="overflow-visible pb-24">
                       <table className="w-full text-sm border-separate border-spacing-0">
                         <thead className="bg-black/20 backdrop-blur-md text-slate-400 font-mono text-[10px] uppercase tracking-widest">
                           <tr>
@@ -1271,42 +1271,29 @@ export function DashboardView({ user, keys, logs, onGenerateKey, onLogout, onDel
 // 1. UserRow Component - Handles Independent Dropdown State
 function UserRow({ userRow, currentUser, onRoleChange, onDeleteUser }) {
   const [isOpen, setIsOpen] = useState(false);
-  const [coords, setCoords] = useState({ top: 0, left: 0 });
-  const [openUpwards, setOpenUpwards] = useState(false);
   const dropdownRef = useRef(null);
-  const triggerRef = useRef(null);
 
-  // Close dropdown if clicked outside + Handle Positioning
   useEffect(() => {
-    function handleClickOutside(event) {
+    if (!isOpen) return;
+
+    const handleClickOutside = (event) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
         setIsOpen(false);
       }
-    }
-
-    if (isOpen && triggerRef.current) {
-      const rect = triggerRef.current.getBoundingClientRect();
-      setCoords({ top: rect.bottom, left: rect.left });
-      const spaceBelow = window.innerHeight - rect.bottom;
-      setOpenUpwards(spaceBelow < 220); // Height of dropdown + some margin
-      if (spaceBelow < 220) {
-        setCoords({ top: rect.top, left: rect.left });
-      }
-    }
-
-    const handleScroll = () => {
-      if (isOpen) setIsOpen(false);
     };
 
     document.addEventListener("mousedown", handleClickOutside);
-    window.addEventListener("scroll", handleScroll, true); // Catch scroll in parents
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-      window.removeEventListener("scroll", handleScroll, true);
-    };
-  }, [isOpen, dropdownRef]);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [isOpen]);
 
   const roles = ['Admin', 'Developer', 'Auditor', 'Newbie'];
+
+  const handleRoleSelect = (r) => {
+    setIsOpen(false);
+    if (r !== userRow.role) {
+      onRoleChange(userRow._id, r);
+    }
+  };
 
   return (
     <tr className="hover:bg-white/5 transition-colors group">
@@ -1345,41 +1332,28 @@ function UserRow({ userRow, currentUser, onRoleChange, onDeleteUser }) {
 
             <div className="relative inline-block" ref={dropdownRef}>
               <button
-                ref={triggerRef}
-                onClick={() => setIsOpen(!isOpen)}
-                className={`flex items-center gap-2 border px-4 py-2 rounded-full text-xs font-bold transition-all duration-300 ring-offset-2 ring-offset-slate-950
+                onClick={() => setIsOpen(prev => !prev)}
+                className={`flex items-center gap-2 border px-4 py-2 rounded-full text-xs font-bold transition-all duration-200 ring-offset-2 ring-offset-slate-950
                 ${isOpen
-                    ? 'bg-emerald-500 border-emerald-400 text-black shadow-[0_0_20px_rgba(16,185,129,0.4)] ring-2 ring-emerald-500/20'
+                    ? 'bg-emerald-500 border-emerald-400 text-black shadow-[0_0_20px_rgba(16,185,129,0.4)]'
                     : 'bg-slate-800/50 border-slate-700 hover:border-slate-500 text-slate-200 hover:bg-slate-700'
                   }`}
               >
                 Modify Role
-                <ChevronDown size={14} className={`transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`} />
+                <ChevronDown size={14} className={`transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
               </button>
 
-              {/* DROPDOWN MENU - USING FIXED POSITIONING FOR PORTAL EFFECT */}
+              {/* DROPDOWN MENU - ANCHORED DIRECTLY AT MODIFY ROLE */}
               {isOpen && (
                 <div
-                  className={`fixed ${openUpwards ? '-translate-y-[calc(100%+12px)]' : 'mt-3'} w-48 bg-slate-900/95 backdrop-blur-2xl border border-white/10 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] overflow-hidden animate-[in_0.2s_ease-out] origin-top-right ring-1 ring-white/10`}
-                  style={{
-                    zIndex: 10000,
-                    top: coords.top,
-                    left: coords.left + 192 - 192, // Manual right-align logic below
-                    transform: openUpwards ? 'translate(-100% , -100%)' : 'translateX(-100%)' // Shift to align right edge
-                  }}
+                  className="absolute right-0 top-full mt-2 w-48 bg-slate-900/98 backdrop-blur-2xl border border-white/15 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.8)] overflow-hidden ring-1 ring-white/10 z-50 animate-[fade-in_0.15s_ease-out]"
                 >
-                  <div
-                    ref={dropdownRef}
-                    className="p-1.5 space-y-1"
-                  >
+                  <div className="p-1.5 space-y-1">
                     {roles.map(r => (
                       <button
                         key={r}
-                        onClick={() => {
-                          onRoleChange(userRow._id, r);
-                          setIsOpen(false);
-                        }}
-                        className={`w-full text-left px-4 py-3 text-xs font-bold transition-all duration-200 flex items-center justify-between rounded-xl group
+                        onClick={() => handleRoleSelect(r)}
+                        className={`w-full text-left px-4 py-2.5 text-xs font-bold transition-all duration-150 flex items-center justify-between rounded-xl group
                             ${userRow.role === r
                             ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
                             : 'text-slate-400 hover:bg-white/5 hover:text-white'}
