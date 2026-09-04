@@ -71,7 +71,8 @@ export default function LoginView() {
           setErrors({ form: "Auth Error: " + (result.error || "Please try again.") });
         }
       } catch (err) {
-        setErrors({ form: "Google API Connection Failed" });
+        console.error("Google Login Error:", err);
+        setErrors({ form: "Google API Connection Failed: " + (err.message || "Unknown error") });
       } finally {
         setLoading(false);
       }

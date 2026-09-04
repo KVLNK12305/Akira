@@ -4,7 +4,7 @@ import api from "../api/axios";
 import { useAuth } from "../context/AuthContext";
 
 export function MFAView({ onVerify }) {
-  const { user, tempEmail, setAuthSuccess, googleLogin, logout } = useAuth();
+  const { user, tempEmail, setAuthSuccess, logout } = useAuth();
 
   const [code, setCode] = useState(["", "", "", "", "", ""]);
   const [error, setError] = useState("");
@@ -79,7 +79,7 @@ export function MFAView({ onVerify }) {
   const handleResend = async () => {
     setIsResending(true);
     try {
-      await googleLogin(targetEmail);
+      await api.post('/auth/resend-mfa', { email: targetEmail });
       setTimeLeft(60);
       setError("");
     } catch {

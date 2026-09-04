@@ -218,6 +218,27 @@ export const verifyMFA = async (req, res) => {
   }
 };
 
+// 3b. 🔄 RESEND MFA CODE
+export const resendMFA = async (req, res) => {
+  try {
+    const { email: rawEmail } = req.body;
+    if (!rawEmail) {
+      return res.status(400).json({ error: 'Email is required' });
+    }
+    const email = String(rawEmail).toLowerCase();
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(404).json({ error: 'Identity not found. Please login again.' });
+    }
+
+    console.log(`[AUTH] Resending MFA verification challenge for: ${email}`);
+    initiateMfa(user, 200, res);
+  } catch (error) {
+    console.error("Resend MFA Error:", error);
+    res.status(500).json({ error: 'Failed to resend verification code' });
+  }
+};
+
 // 4. 🚀 GOOGLE ACCESS (Server-side Verified)
 export const googleAccess = async (req, res) => {
   try {
