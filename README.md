@@ -12,7 +12,7 @@
 
 ---
 
-## 🏛️ Tri-Plane Security Architecture
+## Tri-Plane Security Architecture
 
 AKIRA strictly separates human administrative governance, high-entropy machine workloads, and real-time autonomous threat mitigation across three discrete planes:
 
@@ -44,7 +44,7 @@ AKIRA strictly separates human administrative governance, high-entropy machine w
 * **Ephemeral Workload Credentials (SVID):** High-entropy root keys can be exchanged for scoped, short-lived (30s–1hr) JWT tokens cryptographically bound to client IP addresses.
 * **Granular Payment Scopes:** Domain-specific permission fencing (`payment:initiate`, `payment:authorize`, `payment:settle`, `refund:process`, `ledger:read`, `ledger:write`).
 
-### 3. 🤖 AI Threat Sentinel & Automated Containment (The Risk Plane)
+### 3. AI Threat Sentinel & Automated Containment (The Risk Plane)
 * **Real-Time Heuristic Scoring (0–100):** Inbound payloads are evaluated against continuously learned machine behavioral baselines across 8 weighted signals:
   * `IP_DEVIATION` (+25 pts): Inbound request from an unlearned subnet or foreign geographic location.
   * `SCOPE_ESCALATION` (+30 pts): Attempted execution of uncharacteristic or elevated payment endpoints.
@@ -67,7 +67,7 @@ AKIRA strictly separates human administrative governance, high-entropy machine w
 
 ---
 
-## 🎨 Modernist SOC Dashboard Experience
+## Modernist SOC Dashboard Experience
 
 The frontend is crafted in a spacious, high-contrast **Modernist SOC aesthetic**:
 
@@ -82,7 +82,7 @@ The frontend is crafted in a spacious, high-contrast **Modernist SOC aesthetic**
 
 ---
 
-## 🛠️ Tech Stack
+## Tech Stack
 
 | Layer | Technology | Purpose |
 | :--- | :--- | :--- |
@@ -98,10 +98,10 @@ The frontend is crafted in a spacious, high-contrast **Modernist SOC aesthetic**
 
 ---
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Prerequisites
-* [Bun](https://bun.sh/) (v1.0+)
+* Bun (v1.0+)
 * Node.js (v18+) & pnpm
 * MongoDB (Atlas or Local instance)
 * Rust toolchain (optional, for rebuilding `native_core`)
@@ -143,7 +143,7 @@ pnpm run build
 
 ---
 
-## 📡 API Reference
+## API Reference
 
 ### 1. Human Auth & Profile Governance
 | Method | Endpoint | Description |
@@ -173,7 +173,7 @@ pnpm run build
 | `POST` | `/api/v1/token/revoke` | Revoke specific ephemeral SVID token |
 | `POST` | `/api/v1/nhi-validate` | Simulate step-by-step cryptographic handshake (Guardian Eye) |
 
-### 3. 🤖 AI Threat Sentinel & Containment
+### 3. AI Threat Sentinel & Containment
 | Method | Endpoint | Description |
 | :--- | :--- | :--- |
 | `GET` | `/api/v1/risk/events` | Stream paginated real-time risk evaluation events |
@@ -187,7 +187,7 @@ pnpm run build
 | `PUT` | `/api/v1/policies/:id` | Enable or disable an automated containment policy |
 | `POST` | `/api/v1/risk/simulate-attack` | Trigger tactical APT attack scenario for sandbox verification |
 
-### 4. 💳 Protected Payment Infrastructure
+### 4. Protected Payment Infrastructure
 | Method | Endpoint | Required Scope | Description |
 | :--- | :--- | :--- | :--- |
 | `POST` | `/api/v1/payment/charge` | `payment:initiate` | Authorize payment transaction |
@@ -197,7 +197,7 @@ pnpm run build
 
 ---
 
-## 🔒 Security Specifications Summary
+## Security Specifications Summary
 
 | Feature | Specification | Standard / Reference |
 | :--- | :--- | :--- |
@@ -210,7 +210,7 @@ pnpm run build
 
 ---
 
-## 📜 Academic Integrity & Attribution
+## Academic Integrity & Attribution
 
 * **Course:** 23CSE313 — Foundations of Cyber Security  
 * **Institution:** Amrita Vishwa Vidyapeetham  
