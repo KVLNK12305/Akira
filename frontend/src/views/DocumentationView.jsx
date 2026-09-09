@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { 
-  Book, ShieldCheck, Code, Terminal, ArrowLeft, Lock, 
+  Book, ShieldCheck, Code, Terminal, ArrowLeft, ArrowRight, Lock, 
   Server, Layers, AlertTriangle, Cpu, Radio, Copy, Check, 
-  Sparkles, ExternalLink, Zap
+  Sparkles, ExternalLink, Zap, Bot, Play
 } from "lucide-react";
+import { McpSimulationCockpit } from "../components/McpSimulationCockpit.jsx";
 
 export function DocumentationView({ onBack, roleLabel }) {
   const [activeSection, setActiveSection] = useState("intro");
@@ -17,6 +18,8 @@ export function DocumentationView({ onBack, roleLabel }) {
 
   const sections = [
     { id: "intro", label: "Architecture Overview", icon: Book },
+    { id: "mcp", label: "Model Context Protocol (MCP)", icon: Bot },
+    { id: "simulation", label: "Interactive Simulation Lab", icon: Play },
     { id: "rust", label: "Rust Core & Zeroization", icon: Cpu },
     { id: "threat", label: "8-Signal AI Risk Sentinel", icon: Radio },
     { id: "auth", label: "Authentication Protocols", icon: ShieldCheck },
@@ -112,6 +115,138 @@ export function DocumentationView({ onBack, roleLabel }) {
                   Static root keys are never exposed directly to business logic. Workloads exchange high-entropy credentials for short-lived (30s–60s) ephemeral SVID tokens bound to the requesting client's IP and specific payment scopes.
                 </p>
               </div>
+            </div>
+          )}
+
+          {/* 🌟 MODEL CONTEXT PROTOCOL (MCP) INTEGRATION */}
+          {activeSection === "mcp" && (
+            <div className="space-y-8 animate-fade-in">
+              <div>
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-mono uppercase mb-3">
+                  <Bot size={14} /> Agentic AI Governance & Tool-Call Defense
+                </div>
+                <h2 className="text-3xl sm:text-4xl font-extrabold text-white font-display tracking-tight mb-3">
+                  Model Context Protocol (MCP) Sentinel
+                </h2>
+                <p className="text-slate-300 text-base leading-relaxed">
+                  The open <strong>Model Context Protocol (MCP)</strong> enables autonomous AI agents (Claude, Cursor, Antigravity) to execute tools against internal infrastructure. AKIRA acts as a hardened Zero-Trust MCP Gateway: the LLM is a <strong className="text-white">caller</strong>, never the security <strong className="text-white">decider</strong>.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <InfoCard title="Transport Protocol" value="JSON-RPC 2.0 / SSE" desc="Native HTTP and Server-Sent Events streaming on /api/v1/mcp." />
+                <InfoCard title="Identity Invariant" value="Transport-Bound SVID" desc="Cryptographically verified ephemeral SVID re-attested on every invocation." />
+                <InfoCard title="Risk Adaptation" value="Closed-Loop Sentinel" desc="Probing or rate limit violations feed directly into agent's own risk score." />
+              </div>
+
+              {/* Hardened Invariants Grid */}
+              <div className="p-6 rounded-2xl bg-gradient-to-r from-emerald-950/30 via-[#071329] to-teal-950/30 border border-emerald-500/20 shadow-xl space-y-4">
+                <h3 className="text-emerald-400 font-bold text-base flex items-center gap-2 font-display">
+                  <ShieldCheck size={18} /> Six Non-Negotiable Hardening Controls
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs text-slate-300">
+                  <div className="p-3 rounded-xl bg-[#040814] border border-white/[0.06]">
+                    <p className="font-bold text-white font-mono mb-1">1. Session-Bound Ephemeral SVID</p>
+                    <p className="text-slate-400">No static keys. MCP clients authenticate with short-lived SVIDs re-checked for signature, expiry, and revocation per call.</p>
+                  </div>
+                  <div className="p-3 rounded-xl bg-[#040814] border border-white/[0.06]">
+                    <p className="font-bold text-white font-mono mb-1">2. Confused-Deputy Scoping</p>
+                    <p className="text-slate-400">Tool arguments cannot query arbitrary keys outside the calling agent's tenant or authorized domain.</p>
+                  </div>
+                  <div className="p-3 rounded-xl bg-[#040814] border border-white/[0.06]">
+                    <p className="font-bold text-white font-mono mb-1">3. Closed-Loop Risk Feedback</p>
+                    <p className="text-slate-400">Denied calls, scope-probing, or burst rates raise the calling agent's own risk score in the live Risk Engine.</p>
+                  </div>
+                  <div className="p-3 rounded-xl bg-[#040814] border border-white/[0.06]">
+                    <p className="font-bold text-white font-mono mb-1">4. Fail-Closed Everywhere</p>
+                    <p className="text-slate-400">Database faults, rate-limit errors, or audit failures unconditionally resolve to DENY.</p>
+                  </div>
+                  <div className="p-3 rounded-xl bg-[#040814] border border-white/[0.06]">
+                    <p className="font-bold text-white font-mono mb-1">5. Prompt Injection Boundary</p>
+                    <p className="text-slate-400">External strings are structurally tagged with <code className="text-emerald-400">{`{ _untrusted: true }`}</code> and size-capped to 500 chars.</p>
+                  </div>
+                  <div className="p-3 rounded-xl bg-[#040814] border border-white/[0.06]">
+                    <p className="font-bold text-white font-mono mb-1">6. Target Simulation Eligibility</p>
+                    <p className="text-slate-400">Simulations can only target machines explicitly flagged <code className="text-cyan-400">simulationEligible: true</code> in staging/test.</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* MCP Tools Catalog */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-mono font-bold text-emerald-400 uppercase tracking-widest">
+                    Available MCP Tools (JSON-RPC 2.0)
+                  </h4>
+                  <button
+                    onClick={() => setActiveSection("simulation")}
+                    className="text-xs font-mono text-cyan-400 hover:text-cyan-300 flex items-center gap-1 transition-colors"
+                  >
+                    Launch Interactive Lab <ArrowRight size={12} />
+                  </button>
+                </div>
+                <div className="space-y-2">
+                  <Endpoint method="tools/call" path="get_nhi_profile" desc="Inspects machine registration, scopes, and baseline learning state. (Scope: mcp:nhi:read)" />
+                  <Endpoint method="tools/call" path="get_risk_score" desc="Fetches 0-100 real-time risk score, threat level, and containment status. (Scope: mcp:risk:read)" />
+                  <Endpoint method="tools/call" path="get_risk_events" desc="Paginated query of anomaly evaluations and incidents. (Scope: mcp:risk:read)" />
+                  <Endpoint method="tools/call" path="get_behavioral_baseline" desc="Inspects learned typical hours, normal endpoints, and request velocity. (Scope: mcp:baseline:read)" />
+                  <Endpoint method="tools/call" path="investigate_nhi" desc="Compiles full forensic dossier aggregating profile, tokens, and baselines. (Scope: mcp:forensics:read)" />
+                  <Endpoint method="tools/call" path="simulate_attack" desc="Executes controlled attack through live AI Risk Sentinel against simulation-eligible keys. (Scope: mcp:simulation:execute)" />
+                </div>
+              </div>
+
+              {/* Claude Desktop Config Snippet */}
+              <div className="space-y-3">
+                <h4 className="text-xs font-mono font-bold text-emerald-400 uppercase tracking-widest">
+                  Client Setup (Claude Desktop, Cursor, Antigravity IDE)
+                </h4>
+                <CodeBlock
+                  title="claude_desktop_config.json / mcp_config.json"
+                  lang="json"
+                  onCopy={() => handleCopy(`{
+  "mcpServers": {
+    "akira-sentinel": {
+      "url": "http://localhost:5001/api/v1/mcp/sse",
+      "headers": {
+        "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+      }
+    }
+  }
+}`, 'mcp-cfg')}
+                  copied={copiedKey === 'mcp-cfg'}
+                >
+{`{
+  "mcpServers": {
+    "akira-sentinel": {
+      "url": "http://localhost:5001/api/v1/mcp/sse",
+      "headers": {
+        "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+      }
+    }
+  }
+}`}
+                </CodeBlock>
+              </div>
+            </div>
+          )}
+
+          {/* 🧪 INTERACTIVE ATTACK & MCP SIMULATION LAB */}
+          {activeSection === "simulation" && (
+            <div className="space-y-7 animate-fade-in">
+              <div>
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-500/10 border border-purple-500/20 text-purple-400 text-xs font-mono uppercase mb-3">
+                  <Play size={14} fill="currentColor" /> Live Interactive Simulation Lab
+                </div>
+                <h2 className="text-3xl sm:text-4xl font-extrabold text-white font-display tracking-tight mb-2">
+                  Interactive Attack & Guardrail Cockpit
+                </h2>
+                <p className="text-slate-300 text-sm sm:text-base leading-relaxed">
+                  Trigger legitimate requests and adversarial attack scenarios against AKIRA's zero-trust gateway in real-time. Watch the step-by-step pipeline enforce cryptographic attestation, reject prompt injection, calculate risk-adaptive scores, and commit immutable WORM audit receipts.
+                </p>
+              </div>
+
+              {/* Embed Cockpit Component */}
+              <McpSimulationCockpit />
             </div>
           )}
 
