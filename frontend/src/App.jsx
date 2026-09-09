@@ -65,9 +65,11 @@ function MainLogic() {
     // Wait for AuthContext to finish checking session cookie
     if (authLoading) return;
 
-    // Case A: Fully Authenticated -> Go to Dashboard
+    // Case A: Fully Authenticated
     if (user) {
-      setView("dashboard");
+      if (view === "hero" || view === "login" || view === "mfa") {
+        setView("dashboard");
+      }
       fetchDashboardData();
     }
     // Case B: Login success, waiting for MFA -> Go to MFA
@@ -84,7 +86,7 @@ function MainLogic() {
         setView("hero");
       }
     }
-  }, [user, tempEmail, authLoading, view]);
+  }, [user, tempEmail, authLoading]);
 
   
   // --- 3. HANDLERS ---
