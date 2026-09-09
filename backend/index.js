@@ -17,6 +17,7 @@ import accessRoutes from './src/routes/accessRoutes.js';
 import tokenRoutes from './src/routes/tokenRoutes.js';
 import riskRoutes from './src/routes/riskRoutes.js';
 import policyRoutes from './src/routes/policyRoutes.js';
+import mcpRoutes from './src/routes/mcpRoutes.js';
 
 dotenv.config();
 
@@ -99,6 +100,7 @@ app.use('/api/v1', dataRoutes);
 app.use('/api/v1/token', tokenRoutes);
 app.use('/api/v1/risk', riskRoutes);
 app.use('/api/v1/policies', policyRoutes);
+app.use('/api/v1/mcp', mcpRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/access', accessRoutes);
 
