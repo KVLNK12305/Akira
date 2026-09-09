@@ -535,14 +535,14 @@ export function DashboardView({ user, keys, logs, onGenerateKey, onLogout, onDel
         >
           <div className="flex items-center gap-3 mb-2">
             <div className="w-9 h-9 rounded-xl bg-slate-800 border border-emerald-500/30 overflow-hidden flex items-center justify-center font-bold text-xs group-hover:border-emerald-400 transition-colors shadow-md shrink-0">
-              {user?.profilePicture ? (
+              {(user?.profilePicture && user.profilePicture.trim()) ? (
                 <img
                   src={user.profilePicture.startsWith('http') ? user.profilePicture : `${API_URL}${user.profilePicture}`}
                   alt="Avatar"
                   className="w-full h-full object-cover"
                 />
               ) : (
-                <span className="text-emerald-400 font-mono font-bold">{user?.username?.substring(0, 2).toUpperCase()}</span>
+                <span className="text-emerald-400 font-mono font-bold">{user?.username?.substring(0, 2).toUpperCase() || "ID"}</span>
               )}
             </div>
             <div className="overflow-hidden flex-1">

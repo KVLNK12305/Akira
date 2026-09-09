@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import {
     User, Camera, Key, Mail, Shield, ArrowLeft,
     Check, Loader2, AlertTriangle, Eye, EyeOff, Upload, LogOut,
@@ -19,6 +19,14 @@ export default function ProfileView({ onBack, onLogout }) {
     const [isUpdating, setIsUpdating] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
     const [updateMsg, setUpdateMsg] = useState({ type: "", text: "" });
+
+    // Synchronize form when user loads or updates
+    useEffect(() => {
+        if (user) {
+            if (user.username) setUsername(user.username);
+            if (user.profilePicture) setProfilePicture(user.profilePicture);
+        }
+    }, [user]);
 
     // Password Change State
     const [step, setStep] = useState(1); // 1: Request, 2: Verification
@@ -193,14 +201,14 @@ export default function ProfileView({ onBack, onLogout }) {
                         <div className="bg-slate-900/50 border border-slate-800 rounded-2xl p-6 text-center backdrop-blur-xl">
                             <div className="relative inline-block mb-4">
                                 <div className="w-32 h-32 rounded-full bg-slate-800 border-4 border-slate-950 flex items-center justify-center text-4xl font-bold text-white overflow-hidden shadow-2xl mx-auto">
-                                    {previewUrl || profilePicture ? (
+                                    {(previewUrl || (profilePicture && profilePicture.trim())) ? (
                                         <img
                                             src={previewUrl || (profilePicture?.startsWith('http') ? profilePicture : `${API_URL}${profilePicture}`)}
                                             alt="Avatar"
                                             className="w-full h-full object-cover"
                                         />
                                     ) : (
-                                        user?.username?.substring(0, 2).toUpperCase()
+                                        user?.username?.substring(0, 2).toUpperCase() || "ID"
                                     )}
                                 </div>
                                 <input
@@ -251,7 +259,9 @@ export default function ProfileView({ onBack, onLogout }) {
                             </div>
                             <div className="flex justify-between text-xs">
                                 <span className="text-slate-500 uppercase font-bold">Member Since</span>
-                                <span className="text-slate-400">{new Date(user?.createdAt).toLocaleDateString()}</span>
+                                <span className="text-slate-400">
+                                    {user?.createdAt ? new Date(user.createdAt).toLocaleDateString() : "Active Session"}
+                                </span>
                             </div>
                         </div>
                         <button
