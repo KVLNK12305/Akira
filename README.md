@@ -65,6 +65,26 @@ AKIRA strictly separates human administrative governance, high-entropy machine w
 * **Tamper-Evident WORM Audit Trail:** Write-Once, Read-Many audit log chain linked with **HMAC-SHA256 Integrity Signatures** and forward-secure sequence hashes.
 * **Compliance PDF Export:** Client-side cryptographic evidence generation in Base64-JSON and signed PDF formats.
 
+### 5. The Model Context Protocol (MCP) Governance Plane
+AKIRA exposes a hardened, Zero-Trust **Model Context Protocol (MCP)** interface allowing autonomous AI agents (Claude Desktop, Cursor, Antigravity IDE, Windsurf) to investigate identities, risk events, and run controlled simulations — **without ever becoming security decision-makers**.
+
+* **The Core Principle:** The AI Agent is a **caller**, never a **decider**.
+* **Six Non-Negotiable Hardening Controls:**
+  1. **Transport-Bound Ephemeral SVID:** No static API keys. Sessions authenticate via short-lived JWT-SVIDs re-verified on **every single tool invocation** for cryptographic signature, expiration, database revocation in `EphemeralToken`, and parent-key quarantine.
+  2. **Confused-Deputy Defense:** Tool arguments cannot query arbitrary keys outside the calling identity's authorized tenant/owner boundary (`confused-deputy.js`).
+  3. **Closed-Loop Risk Feedback:** Repeated unauthorized probing, scope escalation attempts, or rate-limit violations automatically feed anomaly signals (`SCOPE_ESCALATION`, `VELOCITY_SPIKE`, `SUSPICIOUS_PATTERN`) into AKIRA's live Risk Engine, degrading the calling agent's own risk score in real-time.
+  4. **Fail-Closed Everywhere:** Infrastructure failures, policy engine faults, database timeouts, rate-limiter errors, and audit-write failures unconditionally result in `DENY`.
+  5. **Prompt-Injection Boundary:** All external, free-text metadata returned to the model is structurally demarcated with `{ "_untrusted": true, "type": "untrusted_external_content", "value": "..." }` and size-capped to 500 characters to prevent instruction hijacking and context-window exhaustion.
+  6. **Simulation-Eligibility Guardrail:** Attack simulations can **only** target machine identities explicitly flagged `simulationEligible: true` in staging/test environments. Any attempt to target production workloads is denied with `TARGET_NOT_SIMULATION_ELIGIBLE`.
+
+* **MCP Tools Exposed (JSON-RPC 2.0):**
+  * `get_nhi_profile` (`mcp:nhi:read`): Retrieve identity registration, status, scopes, and baseline learning state.
+  * `get_risk_score` (`mcp:risk:read`): Fetch real-time 0–100 risk score and containment status.
+  * `get_risk_events` (`mcp:risk:read`): Paginated stream of security incident evaluations.
+  * `get_behavioral_baseline` (`mcp:baseline:read`): Inspect learned typical working hours, endpoints, and request velocity.
+  * `investigate_nhi` (`mcp:forensics:read`): Aggregate full forensic dossier across credentials, incidents, and attestation.
+  * `simulate_attack` (`mcp:simulation:execute`): Execute controlled APT attack through the live AI Risk Sentinel against simulation-eligible keys.
+
 ---
 
 ## Modernist SOC Dashboard Experience
@@ -78,7 +98,7 @@ The frontend is crafted in a spacious, high-contrast **Modernist SOC aesthetic**
 * **Machine Identity Profiles Registry**: Behavioral baseline models, learned subnets, typical scopes, velocity metrics, and in-modal 1-click quarantine controls.
 * **Connected Prevalent Signals Sidebar**: Clicking prevalent anomaly bars live-filters the event stream.
 * **Guardian Eye (NHI Lab)**: Interactive machine transmission simulator verifying Akira prefix protocols, Base64 decoding, SHA-256 fingerprinting, and database resolution.
-* **Interactive Documentation & MCP Roadmap**: Integrated API documentation, threat matrix reference, error code glossary, and Model Context Protocol (MCP) agent governance specifications.
+* **Interactive Documentation & MCP Simulation Lab**: Integrated API documentation, threat matrix reference, error code glossary, and a live **Interactive MCP & Threat Simulation Cockpit** with 5 test scenarios (*Clean Workload*, *Prompt Injection Exploit*, *Scope Escalation Probe*, *Adversary Attack Simulation*, *Target Eligibility Guardrail*) and live step-by-step pipeline execution telemetry.
 
 ---
 
@@ -89,6 +109,7 @@ The frontend is crafted in a spacious, high-contrast **Modernist SOC aesthetic**
 | **Runtime** | **Bun** | High-performance JavaScript runtime for low-latency cryptographic operations. |
 | **Native Core** | **Rust + Bun-FFI** | Memory-safe key attestation, CSPRNG entropy generation, and native memory zeroization. |
 | **Backend** | **Express.js** | Modular REST API with risk-scoring middleware pipeline and SSE streams. |
+| **AI Governance** | **Model Context Protocol (MCP)** | JSON-RPC 2.0 & SSE gateway arbitrating autonomous AI tool invocations. |
 | **Database** | **MongoDB Atlas** | Vault for AES-256-GCM encrypted keys, behavioral baselines, and WORM audit chains. |
 | **Frontend** | **React 18 + Vite (Rolldown)** | Modernist SOC Dashboard with responsive layout and zero layout shift. |
 | **Styling** | **Tailwind CSS v4 + Vanilla CSS** | High-contrast dark theme, custom scrollbars, and keyframe animations. |
@@ -132,8 +153,11 @@ pnpm dev
 
 ### 4. Verify System
 ```bash
-# Run automated risk engine test suite:
+# Run the hardened MCP security test suite (25 assertions covering all Zero-Trust controls):
 cd ../backend
+bun test_mcp_hardened.js
+
+# Run automated risk engine test suite:
 bun test_risk_engine.js
 
 # Build frontend bundle:
@@ -195,6 +219,38 @@ pnpm run build
 | `POST` | `/api/v1/payment/refund` | `refund:process` | Process customer refund |
 | `GET` | `/api/v1/ledger/transactions` | `ledger:read` | Inspect transactional ledger |
 
+### 5. Model Context Protocol (MCP) Interface
+| Method | Endpoint | Protocol | Description |
+| :--- | :--- | :--- | :--- |
+| `POST` | `/api/v1/mcp` | JSON-RPC 2.0 | Master MCP gateway endpoint (`initialize`, `tools/call`, `resources/read`) |
+| `GET` | `/api/v1/mcp/sse` | SSE Stream | Server-Sent Events channel for desktop AI clients (Claude, Cursor, Antigravity) |
+| `GET` | `/api/v1/mcp/tools` | REST Catalog | Inspect registered tool schemas and risk tier definitions |
+| `GET` | `/api/v1/mcp/audit/verify-chain` | Verification | Validate full HMAC-SHA256 WORM audit ledger integrity |
+
+---
+
+## MCP Client Configuration
+
+To connect AKIRA's Sentinel MCP server to your AI desktop assistant (Claude Desktop, Cursor, Antigravity IDE, or Windsurf), add this snippet to your `claude_desktop_config.json` or `mcp_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "akira-sentinel": {
+      "url": "http://localhost:5001/api/v1/mcp/sse",
+      "headers": {
+        "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+      }
+    }
+  }
+}
+```
+
+Or run via the standalone stdio transport:
+```bash
+AKIRA_SVID_TOKEN="eyJhbGciOiJIUz..." bun src/mcp/stdio.js
+```
+
 ---
 
 ## Security Specifications Summary
@@ -206,6 +262,7 @@ pnpm run build
 | **Memory Hygiene** | Rust FFI unmanaged memory zeroization | `zeroize` crate / ISO/IEC 15408 |
 | **Machine Workload Tokens** | Ephemeral JWT SVIDs (HS256 / Ed25519) | SPIFFE Standard |
 | **Audit Log Ledger** | HMAC-SHA256 WORM chain | Forward-secure HKDF ledger |
+| **MCP Governance** | JSON-RPC 2.0 Zero-Trust Gateway & Injection Guard | Model Context Protocol v2.0 |
 | **Containment Speed** | &le; 48ms from packet arrival to lockout | Zero-Trust Automated Defense |
 
 ---
