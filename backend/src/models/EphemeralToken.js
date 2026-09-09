@@ -16,7 +16,9 @@ const EphemeralTokenSchema = new mongoose.Schema({
     enum: [
       'read:data', 'write:data', 'delete:data',
       'payment:initiate', 'payment:authorize', 'payment:settle',
-      'refund:process', 'ledger:read', 'ledger:write'
+      'refund:process', 'ledger:read', 'ledger:write',
+      'mcp:nhi:read', 'mcp:risk:read', 'mcp:audit:read', 'mcp:baseline:read', 'mcp:forensics:read',
+      'mcp:simulation:execute', 'mcp:containment:execute'
     ]
   }],
   

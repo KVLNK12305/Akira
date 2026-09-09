@@ -88,7 +88,7 @@ export const verifyChain = (logs, masterKey) => {
   const results = [];
   for (let i = 0; i < logs.length; i++) {
     const log = logs[i];
-    const expectedPrevHash = i === 0 ? 'GENESIS' : logs[i - 1].integritySignature;
+    const expectedPrevHash = i === 0 ? log.previousHash : logs[i - 1].integritySignature;
 
     // Check chain linkage
     if (log.previousHash !== expectedPrevHash) {
@@ -105,17 +105,19 @@ export const verifyChain = (logs, masterKey) => {
     // Recompute signature
     const dataToVerify = {
       action: log.action,
-      actor: log.actor,
-      actorDisplay: log.actorDisplay,
+      actor: log.actor || null,
+      actorDisplay: log.actorDisplay || 'System',
+      ipAddress: log.ipAddress || null,
       timestamp: log.timestamp,
-      details: log.details
+      details: log.details || {}
     };
     const recomputed = signChainedData(dataToVerify, masterKey, log.previousHash, log.sequenceNumber);
 
+    const validSignature = recomputed === log.integritySignature;
     results.push({
       seq: log.sequenceNumber,
-      valid: crypto.timingSafeEqual(Buffer.from(recomputed), Buffer.from(log.integritySignature)),
-      reason: null
+      valid: validSignature,
+      reason: validSignature ? null : 'SIGNATURE_MISMATCH'
     });
   }
   return results;

@@ -22,9 +22,19 @@ export const writeAuditLog = async (logEntry) => {
 
     const sequenceNumber = lastSeq + 1;
 
+    // Normalize entry before signing to ensure saved fields match signed fields
+    const normalizedEntry = {
+      action: logEntry.action,
+      actor: logEntry.actor || null,
+      actorDisplay: logEntry.actorDisplay || 'System',
+      ipAddress: logEntry.ipAddress || null,
+      timestamp: logEntry.timestamp || new Date(),
+      details: logEntry.details || {}
+    };
+
     // 2. Sign with chain context
     const signature = signChainedData(
-      logEntry,
+      normalizedEntry,
       process.env.MASTER_KEY || 'default_master_key',
       previousHash,
       sequenceNumber
@@ -32,7 +42,7 @@ export const writeAuditLog = async (logEntry) => {
 
     // 3. Write
     return AuditLog.create({
-      ...logEntry,
+      ...normalizedEntry,
       previousHash,
       sequenceNumber,
       integritySignature: signature
